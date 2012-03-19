@@ -1627,8 +1627,8 @@ namespace pvpgn
 				char supports_locked_reply = 0;
 				t_clienttag clienttag = conn_get_clienttag(c);
 
-				if (clienttag == CLIENTTAG_STARCRAFT_UINT || clienttag == CLIENTTAG_BROODWARS_UINT || clienttag == CLIENTTAG_SHAREWARE_UINT || 
-					clienttag == CLIENTTAG_DIABLORTL_UINT || clienttag == CLIENTTAG_DIABLOSHR_UINT || clienttag == CLIENTTAG_WARCIIBNE_UINT || 
+				if (clienttag == CLIENTTAG_STARCRAFT_UINT || clienttag == CLIENTTAG_BROODWARS_UINT || clienttag == CLIENTTAG_SHAREWARE_UINT ||
+					clienttag == CLIENTTAG_DIABLORTL_UINT || clienttag == CLIENTTAG_DIABLOSHR_UINT || clienttag == CLIENTTAG_WARCIIBNE_UINT ||
 					clienttag == CLIENTTAG_DIABLO2DV_UINT || clienttag == CLIENTTAG_STARJAPAN_UINT || clienttag == CLIENTTAG_DIABLO2ST_UINT ||
 					clienttag == CLIENTTAG_DIABLO2XP_UINT || clienttag == CLIENTTAG_WARCRAFT3_UINT || clienttag == CLIENTTAG_WAR3XP_UINT )
 				{
@@ -1700,6 +1700,22 @@ namespace pvpgn
 						bn_int_set(&rpacket->u.server_loginreply1.message, SERVER_LOGINREPLY2_MESSAGE_BADPASS);
 					}
 				}
+
+        else if (account_get_actived(account) < (unsigned int)now) { /* default to false */
+          eventlog(eventlog_level_info, __FUNCTION__, "[%d] login for \"%s\" refused (this account need to be activated)", conn_get_socket(c), username);
+          if (supports_locked_reply) {
+              bn_int_set(&rpacket->u.server_loginreply1.message, SERVER_LOGINREPLY2_MESSAGE_LOCKED);
+		          std::string msgtemp = localize(c, "Activate your account at www.eurobattle.net");
+						  msgtemp += account_get_locktext(account, true);
+						  packet_append_string(rpacket, msgtemp.c_str());
+
+              /* unload user */
+              account_unload(account);
+          }
+          else {
+              bn_int_set(&rpacket->u.server_loginreply1.message, SERVER_LOGINREPLY2_MESSAGE_BADPASS);
+          }
+        }
 				else if (conn_get_sessionkey(c) != bn_int_get(packet->u.client_loginreq2.sessionkey)) {
 					eventlog(eventlog_level_error, __FUNCTION__, "[%d] login for \"%s\" refused (expected session key 0x%08x, got 0x%08x)", conn_get_socket(c), username, conn_get_sessionkey(c), bn_int_get(packet->u.client_loginreq2.sessionkey));
 					bn_int_set(&rpacket->u.server_loginreply2.message, SERVER_LOGINREPLY2_MESSAGE_BADPASS);
@@ -2120,6 +2136,14 @@ namespace pvpgn
 					msgtemp += account_get_locktext(account, true);
 					packet_append_string(rpacket, msgtemp.c_str());
 				}
+        else if (account_get_actived(account) < (unsigned int)now) { /* default to false */
+          eventlog(eventlog_level_info, __FUNCTION__, "[%d] login for \"%s\" refused (this account need to be activated)", conn_get_socket(c), username);
+          bn_int_set(&rpacket->u.server_logonproofreply.response, SERVER_LOGONPROOFREPLY_RESPONSE_CUSTOM);
+					std::string msgtemp = localize(c, "Activate account at www.eurobattle.net");
+					msgtemp += account_get_locktext(account, true);
+					packet_append_string(rpacket, msgtemp.c_str());
+          account_unload(account);
+        }
 				else {
 					t_hash serverhash;
 					t_hash clienthash;
@@ -3280,7 +3304,7 @@ namespace pvpgn
 
 			return 0;
 		}
-		
+
 		static int _client_readmemory(t_connection * c, t_packet const *const packet)
 		{
 			char * memory;
@@ -3290,7 +3314,7 @@ namespace pvpgn
 				eventlog(eventlog_level_error, __FUNCTION__, "[%d] got bad READMEMORY packet (expected %lu bytes, got %u)", conn_get_socket(c), sizeof(t_client_readmemory), packet_get_size(packet));
 				return -1;
 			}
- 
+
 			request_id = bn_int_get(packet->u.client_readmemory.request_id);
 
 			size = (unsigned int)packet_get_size(packet);
@@ -4102,12 +4126,12 @@ namespace pvpgn
 					gtype = bngtype_to_gtype(conn_get_clienttag(c), bngtype);
 					if ((gtype == game_type_ladder && account_get_auth_createladdergame(conn_get_account(c)) == 0) || (gtype != game_type_ladder && account_get_auth_createnormalgame(conn_get_account(c)) == 0))
 						eventlog(eventlog_level_info, __FUNCTION__, "[%d] game start for \"%s\" refused (no authority)", conn_get_socket(c), conn_get_username(c));
-					else 
+					else
 					{
 						//find is there any existing game with same name and allow the host to create game
 						// with same name only when another game is already started or already done
 						if ((!(game = gamelist_find_game_available(gamename, conn_get_clienttag(c), game_type_all))) &&
-							(conn_set_game(c, gamename, gamepass, gameinfo, gtype, STARTVER_GW4) == 0)) 
+							(conn_set_game(c, gamename, gamepass, gameinfo, gtype, STARTVER_GW4) == 0))
 						{
 							game_set_option(conn_get_game(c), bngoption_to_goption(conn_get_clienttag(c), gtype, option));
 							if (status & CLIENT_STARTGAME4_STATUS_PRIVATE)

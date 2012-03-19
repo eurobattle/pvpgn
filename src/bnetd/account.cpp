@@ -246,8 +246,13 @@ namespace pvpgn
 
 			return attrgroup_save(account->attrgroup, flags);
 		}
-
-
+    
+    extern int account_unload(t_account * account)
+    {
+      assert(account);
+      return attrgroup_flush(account->attrgroup, FS_FORCE);
+    }
+    
 		extern int account_flush(t_account * account, unsigned flags)
 		{
 			int res;

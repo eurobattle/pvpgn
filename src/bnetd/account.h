@@ -92,6 +92,7 @@ namespace pvpgn
 		extern unsigned int account_get_uid_real(t_account const * account, char const * fn, unsigned int ln);
 		extern int account_match(t_account * account, char const * username);
 		extern int account_save(t_account *account, unsigned flags);
+    extern int account_unload(t_account * account);
 		extern char const * account_get_strattr_real(t_account * account, char const * key, char const * fn, unsigned int ln);
 #define account_get_strattr(A,K) account_get_strattr_real(A,K,__FILE__,__LINE__)
 		extern int account_set_strattr(t_account * account, char const * key, char const * val);

@@ -61,6 +61,9 @@ namespace pvpgn
 		extern char const * account_get_verifier(t_account * account);
 		extern int account_set_verifier(t_account * account, char const * verifier);
 
+    /* custom */
+    extern unsigned int account_get_actived(t_account * account);
+
 		/* authorization */
 		extern int account_get_auth_admin(t_account * account, char const * channelname);
 		extern int account_set_auth_admin(t_account * account, char const * channelname, int val);
