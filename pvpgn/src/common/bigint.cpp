@@ -23,6 +23,7 @@
 #include <cstring>
 #include <cstdio>
 #include <cassert>
+#include <algorithm>
 
 #include "bigint.h"
 #include "common/xalloc.h"
