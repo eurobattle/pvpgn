@@ -255,7 +255,7 @@ static int conf_set_version(const char *valstr)
 
     conf_set_bool(&tmp, valstr, 0);
     if (tmp) {
-        printf(PVPGN_SOFTWARE" version "PVPGN_VERSION"\n");
+        printf(PVPGN_SOFTWARE " version " PVPGN_VERSION "\n");
 	exitflag = 1;
     }
 

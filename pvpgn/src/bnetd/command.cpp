@@ -2131,7 +2131,7 @@ static int _handle_nobeep_command(t_connection * c, char const *text)
 static int _handle_version_command(t_connection * c, char const *text)
 {
   eventlog(eventlog_level_info,__FUNCTION__,"[COMMAND] user \"%s\" run command %s",account_get_name(conn_get_account(c)),text);
-  message_send_text(c,message_type_info,c,PVPGN_SOFTWARE" "PVPGN_VERSION);
+  message_send_text(c,message_type_info,c,PVPGN_SOFTWARE " " PVPGN_VERSION);
   return 0;
 }
 
@@ -3581,7 +3581,7 @@ static int _handle_addacct_command(t_connection * c, char const *text)
 	return 0;
     }
 
-    snprintf(msgtemp, sizeof(msgtemp), "Account "UID_FORMAT" created.",account_get_uid(temp));
+    snprintf(msgtemp, sizeof(msgtemp), "Account " UID_FORMAT " created.",account_get_uid(temp));
     message_send_text(c,message_type_info,c,msgtemp);
     eventlog(eventlog_level_debug,__FUNCTION__,"[%d] account \"%s\" created",conn_get_socket(c),username);
 
@@ -3672,7 +3672,7 @@ static int _handle_chpass_command(t_connection * c, char const *text)
   if (account_get_auth_admin(account,NULL) == 1 ||
       account_get_auth_operator(account,NULL) == 1) {
     snprintf(msgtemp, sizeof(msgtemp), 
-      "Password for account "UID_FORMAT" updated.",account_get_uid(temp));
+      "Password for account " UID_FORMAT " updated.",account_get_uid(temp));
     message_send_text(c,message_type_info,c,msgtemp);
 
     snprintf(msgtemp, sizeof(msgtemp), "Hash is: %.128s",hash_get_str(passhash));
@@ -3821,7 +3821,7 @@ static int _handle_finger_command(t_connection * c, char const *text)
   then = account_get_ll_ctime(account);
   tmthen = std::localtime(&then); /* FIXME: determine user's timezone */  
 	
-  snprintf(msgtemp, sizeof(msgtemp), "Login: %-16.16s "UID_FORMAT" Sex: %.14s",
+  snprintf(msgtemp, sizeof(msgtemp), "Login: %-16.16s " UID_FORMAT " Sex: %.14s",
 	  account_get_name(account),
 	  account_get_uid(account),
 	  account_get_sex(account));
@@ -4165,7 +4165,7 @@ static int _handle_gameinfo_command(t_connection * c, char const *text)
 	return 0;
       }
 
-  snprintf(msgtemp, sizeof(msgtemp), "Name: %-20.20s    ID: "GAMEID_FORMAT" (%.20s)",game_get_name(game),game_get_id(game),game_get_flag(game) != game_flag_private ? "public":"private");
+  snprintf(msgtemp, sizeof(msgtemp), "Name: %-20.20s    ID: " GAMEID_FORMAT " (%.20s)",game_get_name(game),game_get_id(game),game_get_flag(game) != game_flag_private ? "public":"private");
   message_send_text(c,message_type_info,c,msgtemp);
 
   {
@@ -4221,7 +4221,7 @@ static int _handle_gameinfo_command(t_connection * c, char const *text)
     if (!(gmgametime = std::localtime(&gametime)))
       std::strcpy(msgtemp,"Created: ?");
     else
-      std::strftime(msgtemp,sizeof(msgtemp),"Created: "GAME_TIME_FORMAT,gmgametime);
+      std::strftime(msgtemp,sizeof(msgtemp),"Created: " GAME_TIME_FORMAT,gmgametime);
     message_send_text(c,message_type_info,c,msgtemp);
 
     gametime = game_get_start_time(game);
@@ -4230,7 +4230,7 @@ static int _handle_gameinfo_command(t_connection * c, char const *text)
 	if (!(gmgametime = std::localtime(&gametime)))
 	  std::strcpy(msgtemp,"Started: ?");
 	else
-	  std::strftime(msgtemp,sizeof(msgtemp),"Started: "GAME_TIME_FORMAT,gmgametime);
+	  std::strftime(msgtemp,sizeof(msgtemp),"Started: " GAME_TIME_FORMAT,gmgametime);
       }
     else
       std::strcpy(msgtemp,"Started: ");

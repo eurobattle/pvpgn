@@ -965,7 +965,7 @@ static int game_report(t_game * game)
 
     if (game->bad)
 	std::fprintf(fp,"[ game results ignored due to inconsistencies ]\n\n");
-    std::fprintf(fp,"name=\"%s\" id="GAMEID_FORMAT"\n",
+    std::fprintf(fp,"name=\"%s\" id=" GAMEID_FORMAT "\n",
 	    game_get_name(game),
 	    game->id);
     std::fprintf(fp,"clienttag=%4s type=\"%s\" option=\"%s\"\n",
