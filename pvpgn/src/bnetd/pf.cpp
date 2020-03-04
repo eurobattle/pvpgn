@@ -44,7 +44,7 @@ extern void pf_replace_host(t_game *game, std::string realIp) {
 		{ "ipof", realIp }
 	};
 
-	std::string apiUrl = "http://pf2.xpam.pl";
+	std::string apiUrl = "http://pf2.xpam.pl/user.php";
 
 	CURL *curl;
 	CURLcode res;
@@ -63,13 +63,15 @@ extern void pf_replace_host(t_game *game, std::string realIp) {
 		char *cstrPayload = &payload[0];
 		eventlog(eventlog_level_debug, __FUNCTION__, "Pf: request payload %s", cstrPayload);
 
+		char *cstrApiUrl = &apiUrl[0];
+
 		struct curl_slist *chunk = NULL;
 		chunk = curl_slist_append(chunk, "Content-Type: application/json");
 
 		curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "POST");
 		curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10);
 		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-		curl_easy_setopt(curl, CURLOPT_URL, apiUrl + "/user.php");
+		curl_easy_setopt(curl, CURLOPT_URL, cstrApiUrl);
 		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, cstrPayload);
 		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, static_cast<CURL_WRITEFUNCTION_PTR>(curl_callback));
