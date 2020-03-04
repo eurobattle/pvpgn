@@ -56,11 +56,15 @@ endif(CURL_STATICLIB)
 
 OPTION(WITH_PF "Enable port forwarding subsystem" OFF)
 if(WITH_PF)
+  set(CMAKE_CXX_STANDARD 11)
   ADD_DEFINITIONS(-DWITH_PF)
   find_package(CURL REQUIRED)
   include_directories(${PROJECT_SOURCE_DIR}/depends/json/include)
   include_directories(${CURL_INCLUDE_DIRS})
-  target_link_libraries(bnetd ${CURL_LIBRARIES} wldap32 Crypt32)
+  target_link_libraries(bnetd ${CURL_LIBRARIES})
+  if (WIN32)
+    target_link_libraries(bnetd wldap32 Crypt32)
+  endif(WIN32)
 endif(WITH_PF)
 
   target_link_libraries(bnetd common compat win32 tinycdb ${NETWORK_LIBRARIES}
