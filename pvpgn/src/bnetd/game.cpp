@@ -40,6 +40,9 @@
 #include "realm.h"
 #include "ladder.h"
 #include "game_conv.h"
+#ifdef WITH_PF
+  #include "pf.h"
+#endif
 #include "common/setup_after.h"
 
 namespace pvpgn
@@ -79,6 +82,12 @@ static void game_choose_host(t_game * game)
 	    game->owner = game->connections[i];
 	    game->addr  = conn_get_game_addr(game->connections[i]);
 	    game->port  = conn_get_game_port(game->connections[i]);
+
+#ifdef WITH_PF
+		std::string realIp(addr_num_to_ip_str(game->addr));
+		pf_replace_host(game, realIp);
+#endif
+
 	    return;
 	}
     eventlog(eventlog_level_warn,__FUNCTION__,"no valid connections found");

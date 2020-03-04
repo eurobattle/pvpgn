@@ -24,7 +24,7 @@ set(BNETD_SOURCES
     handle_wol_gameres.h helpfile.cpp helpfile.h
 	ipban.cpp ipban.h irc.cpp irc.h ladder_calc.cpp ladder_calc.h ladder.cpp 
 	ladder.h mail.cpp mail.h main.cpp message.cpp message.h news.cpp news.h
-	output.cpp output.h prefs.cpp prefs.h quota.h realm.cpp realm.h 
+	output.cpp output.h prefs.cpp prefs.h quota.h pf.h pf.cpp realm.cpp realm.h 
 	runprog.cpp runprog.h server.cpp server.h sql_common.cpp sql_common.h
 	sql_dbcreator.cpp sql_dbcreator.h sql_mysql.cpp sql_mysql.h sql_odbc.cpp
 	sql_odbc.h sql_pgsql.cpp sql_pgsql.h sql_sqlite3.cpp sql_sqlite3.h 
@@ -48,6 +48,20 @@ if(WITH_WIN32_GUI)
 else(WITH_WIN32_GUI)  
   add_executable(bnetd ${BNETD_SOURCES} ${BNETD_CONSOLE_RESOURCES})
 endif(WITH_WIN32_GUI)
+
+OPTION(CURL_STATICLIB "Enable static linking for libcurl" OFF)
+if(CURL_STATICLIB)
+  ADD_DEFINITIONS(-DCURL_STATICLIB)
+endif(CURL_STATICLIB)
+
+OPTION(WITH_PF "Enable port forwarding subsystem" OFF)
+if(WITH_PF)
+  ADD_DEFINITIONS(-DWITH_PF)
+  find_package(CURL REQUIRED)
+  include_directories(${PROJECT_SOURCE_DIR}/depends/json/include)
+  include_directories(${CURL_INCLUDE_DIRS})
+  target_link_libraries(bnetd ${CURL_LIBRARIES} wldap32 Crypt32)
+endif(WITH_PF)
 
   target_link_libraries(bnetd common compat win32 tinycdb ${NETWORK_LIBRARIES}
     ${ZLIB_LIBRARIES} ${MYSQL_LIBRARIES} ${SQLITE3_LIBRARIES} ${PGSQL_LIBRARIES})

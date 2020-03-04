@@ -71,6 +71,8 @@ typedef t_list t_addrlist;
 namespace pvpgn
 {
 
+extern unsigned int ip_str_to_addr_num(char * ipaddr);
+
 /* ipaddr and port are in host byte order */
 extern char const * addr_num_to_addr_str(unsigned int ipaddr, unsigned short port);
 /* ipaddr is in host byte order */

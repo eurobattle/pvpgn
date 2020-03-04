@@ -32,6 +32,10 @@
 #include "common/xalloc.h"
 #include "common/setup_after.h"
 
+#ifdef WIN32
+#include <Ws2tcpip.h>
+#endif
+
 namespace pvpgn
 {
 
@@ -39,6 +43,21 @@ static char const * netaddr_num_to_addr_str(unsigned int netipaddr, unsigned int
 
 
 #define HACK_SIZE 4
+
+extern unsigned int ip_str_to_addr_num(char * ipaddr) {
+	struct sockaddr_in sa;
+	inet_pton(AF_INET, ipaddr, &(sa.sin_addr));
+
+	unsigned int res;
+#ifdef HAVE_ARPA_INET_H
+	res = ntohl(sa.sin_addr.s_addr); //network to host byte order
+#elif defined(_WS2TCPIP_H_)
+	res = ntohl(sa.sin_addr.S_un.S_addr);
+#else
+#error System does not provide ntohl
+#endif
+	return res;
+}
 
 /* both arguments are in host byte order */
 extern char const * addr_num_to_addr_str(unsigned int ipaddr, unsigned short port)
