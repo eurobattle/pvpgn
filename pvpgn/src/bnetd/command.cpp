@@ -768,8 +768,8 @@ static int _handle_clan_command(t_connection * c, char const * text)
               if (j<sizeof(clanname)-1) clanname[j++] = text[i];
           clanname[j] = '\0';
 
-		message_send_text(c,message_type_error,c,"clan create command is disabled on EuroBattle.Net!");
-        return 0;		
+		//message_send_text(c,message_type_error,c,"clan create command is disabled on EuroBattle.Net!");
+        //return 0;		
 			
           if ((clantag[0]=='\0') || (clanname[0]=='\0')) {
               message_send_text(c,message_type_info,c,"usage:");
