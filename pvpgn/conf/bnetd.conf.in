@@ -389,6 +389,10 @@ passfail_bantime = 300
 # Max users limit in private channels (0 = unlimited)
 maxusers_per_channel = 0
 
+# Mute exceptions. Specify which usernames a muted player is allowed to send a whisper to.
+# The list is a comma separated list, for example: admin1,bot2,moderator3
+mute_whitelist = ""
+
 #                                                                            #
 ##############################################################################
 
