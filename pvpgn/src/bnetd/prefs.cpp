@@ -811,7 +811,7 @@ static t_conf_entry conf_table[] =
     { "passfail_count",		conf_set_passfail_count,       conf_get_passfail_count,conf_setdef_passfail_count},
     { "passfail_bantime",	conf_set_passfail_bantime,     conf_get_passfail_bantime,conf_setdef_passfail_bantime},
     { "maxusers_per_channel",	conf_set_maxusers_per_channel, conf_get_maxusers_per_channel,conf_setdef_maxusers_per_channel},
-    { "mute_whitelist",           conf_set_mute_whitelist,         conf_get_mute_whitelist, conf_setdef_mute_whitelist},
+    { "mute_whitelist",	conf_set_mute_whitelist,    conf_get_mute_whitelist, conf_setdef_mute_whitelist},
     { "allowed_clients",	conf_set_allowed_clients,      conf_get_allowed_clients,conf_setdef_allowed_clients},
     { "ladder_games",           conf_set_ladder_games,         conf_get_ladder_games, conf_setdef_ladder_games},
     { "max_connections",      	conf_set_max_connections,      conf_get_max_connections,conf_setdef_max_connections},
