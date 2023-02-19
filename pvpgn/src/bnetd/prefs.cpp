@@ -23,6 +23,7 @@
 #include "prefs.h"
 
 #include <cstdio>
+#include <sstream>
 
 #include "common/conf.h"
 #include "common/eventlog.h"
@@ -153,6 +154,7 @@ static struct {
     unsigned int passfail_count;
     unsigned int passfail_bantime;
     unsigned int maxusers_per_channel;
+    char const * mute_whitelist;
     char const * supportfile;
     char const * allowed_clients;
     char const * ladder_games;
@@ -625,6 +627,10 @@ static int conf_set_maxusers_per_channel(const char *valstr);
 static const char *conf_get_maxusers_per_channel(void);
 static int conf_setdef_maxusers_per_channel(void);
 
+static int conf_set_mute_whitelist(const char *valstr);
+static const char *conf_get_mute_whitelist(void);
+static int conf_setdef_mute_whitelist(void);
+
 static int conf_set_allowed_clients(const char *valstr);
 static const char *conf_get_allowed_clients(void);
 static int conf_setdef_allowed_clients(void);
@@ -805,6 +811,7 @@ static t_conf_entry conf_table[] =
     { "passfail_count",		conf_set_passfail_count,       conf_get_passfail_count,conf_setdef_passfail_count},
     { "passfail_bantime",	conf_set_passfail_bantime,     conf_get_passfail_bantime,conf_setdef_passfail_bantime},
     { "maxusers_per_channel",	conf_set_maxusers_per_channel, conf_get_maxusers_per_channel,conf_setdef_maxusers_per_channel},
+    { "mute_whitelist",	        conf_set_mute_whitelist,       conf_get_mute_whitelist, conf_setdef_mute_whitelist},
     { "allowed_clients",	conf_set_allowed_clients,      conf_get_allowed_clients,conf_setdef_allowed_clients},
     { "ladder_games",           conf_set_ladder_games,         conf_get_ladder_games, conf_setdef_ladder_games},
     { "max_connections",      	conf_set_max_connections,      conf_get_max_connections,conf_setdef_max_connections},
@@ -3250,6 +3257,36 @@ static int conf_setdef_maxusers_per_channel(void)
 static const char* conf_get_maxusers_per_channel(void)
 {
     return conf_get_int(prefs_runtime_config.maxusers_per_channel);
+}
+
+
+extern std::vector<std::string> prefs_get_mute_whitelist(void)
+{
+    std::vector<std::string> result;
+    std::string mute_whitelist_value(prefs_runtime_config.mute_whitelist);
+    std::istringstream iss(mute_whitelist_value);
+
+    for (std::string token; std::getline(iss, token, ','); )
+    {
+        result.push_back(std::move(token));
+    }
+
+    return result;
+}
+
+static int conf_set_mute_whitelist(const char *valstr)
+{
+    return conf_set_str(&prefs_runtime_config.mute_whitelist,valstr,NULL);
+}
+
+static int conf_setdef_mute_whitelist(void)
+{
+    return conf_set_str(&prefs_runtime_config.mute_whitelist,NULL,NULL);
+}
+
+static const char* conf_get_mute_whitelist(void)
+{
+    return prefs_runtime_config.mute_whitelist;
 }
 
 

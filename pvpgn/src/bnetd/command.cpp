@@ -31,6 +31,7 @@
 #include <cerrno>
 #include <cstring>
 #include <cstdlib>
+#include <vector>
 
 #include "compat/strcasecmp.h"
 #include "compat/snprintf.h"
@@ -113,8 +114,12 @@ static void do_whisper(t_connection * user_c, char const * dest, char const * te
 
 	if (account_get_auth_mute(conn_get_account(user_c))==1)
 	{
-      message_send_text(user_c,message_type_error,user_c,"Your account has been muted, you can't whisper to other users.");
-      return;
+      std::vector<std::string> whitelisted_accounts = prefs_get_mute_whitelist();
+      std::string dest_s(dest);
+      if (std::find(whitelisted_accounts.begin(), whitelisted_accounts.end(), dest_s) == whitelisted_accounts.end()) {
+        message_send_text(user_c,message_type_error,user_c,"Your account has been muted, you can't whisper to other users.");
+        return;
+      }
 	}  
 	
     if (!(dest_c = connlist_find_connection_by_name(dest,conn_get_realm(user_c))))

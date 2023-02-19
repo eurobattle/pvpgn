@@ -22,6 +22,8 @@
 
 #endif
 
+#include <string>
+#include <vector>
 
 #ifndef JUST_NEED_TYPES
 #ifndef INCLUDED_PREFS_PROTOS
@@ -172,6 +174,7 @@ extern unsigned int prefs_get_clan_min_invites(void);
 extern unsigned int prefs_get_passfail_count(void) ;
 extern unsigned int prefs_get_passfail_bantime(void) ;
 extern unsigned int prefs_get_maxusers_per_channel(void) ;
+extern std::vector<std::string> prefs_get_mute_whitelist(void) ;
 extern char const * prefs_get_supportfile(void);
 extern char const * prefs_get_allowed_clients(void);
 extern char const * prefs_get_ladder_games(void);
