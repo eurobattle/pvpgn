@@ -32,6 +32,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <vector>
+#include <algorithm>
 
 #include "compat/strcasecmp.h"
 #include "compat/snprintf.h"
