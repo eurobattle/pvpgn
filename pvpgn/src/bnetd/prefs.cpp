@@ -24,6 +24,7 @@
 
 #include <cstdio>
 #include <sstream>
+#include <utility>
 
 #include "common/conf.h"
 #include "common/eventlog.h"

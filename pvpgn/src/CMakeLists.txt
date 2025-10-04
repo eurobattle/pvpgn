@@ -15,9 +15,9 @@ if(WITH_FLAG_WALL)
     add_definitions("-Wall")
 endif(WITH_FLAG_WALL)
 
-if(WITH_FLAG_ANSIPEDANTIC)
-    add_definitions("-pedantic -ansi")
-endif(WITH_FLAG_ANSIPEDANTIC)
+if(WITH_FLAG_PEDANTIC)
+    add_definitions("-pedantic")
+endif(WITH_FLAG_PEDANTIC)
 
 if(MYSQL_FOUND)
     add_definitions("-DWITH_SQL_MYSQL")
