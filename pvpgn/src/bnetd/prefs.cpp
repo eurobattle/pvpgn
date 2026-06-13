@@ -70,6 +70,7 @@ static struct {
     unsigned int shutdown_delay;
     unsigned int shutdown_decr;
     unsigned int new_accounts;
+    unsigned int require_activation;
     unsigned int max_accounts;
     unsigned int kick_old_login;
     unsigned int ask_new_channel;
@@ -287,6 +288,10 @@ static int conf_setdef_shutdown_decr(void);
 static int conf_set_new_accounts(const char *valstr);
 static const char *conf_get_new_accounts(void);
 static int conf_setdef_new_accounts(void);
+
+static int conf_set_require_activation(const char *valstr);
+static const char *conf_get_require_activation(void);
+static int conf_setdef_require_activation(void);
 
 static int conf_set_max_accounts(const char *valstr);
 static const char *conf_get_max_accounts(void);
@@ -727,6 +732,7 @@ static t_conf_entry conf_table[] =
     { "shutdown_delay",         conf_set_shutdown_delay,       conf_get_shutdown_delay,conf_setdef_shutdown_delay},
     { "shutdown_decr",          conf_set_shutdown_decr,        conf_get_shutdown_decr,conf_setdef_shutdown_decr},
     { "new_accounts",           conf_set_new_accounts,         conf_get_new_accounts, conf_setdef_new_accounts},
+    { "require_activation",     conf_set_require_activation,   conf_get_require_activation, conf_setdef_require_activation},
     { "max_accounts",           conf_set_max_accounts,         conf_get_max_accounts, conf_setdef_max_accounts},
     { "kick_old_login",         conf_set_kick_old_login,       conf_get_kick_old_login,conf_setdef_kick_old_login},
     { "ask_new_channel",        conf_set_ask_new_channel,      conf_get_ask_new_channel,conf_setdef_ask_new_channel},
@@ -1393,6 +1399,26 @@ static int conf_setdef_new_accounts(void)
 static const char* conf_get_new_accounts(void)
 {
     return conf_get_bool(prefs_runtime_config.new_accounts);
+}
+
+extern unsigned int prefs_get_require_activation(void)
+{
+    return prefs_runtime_config.require_activation;
+}
+
+static int conf_set_require_activation(const char *valstr)
+{
+    return conf_set_bool(&prefs_runtime_config.require_activation, valstr, 0);
+}
+
+static int conf_setdef_require_activation(void)
+{
+    return conf_set_bool(&prefs_runtime_config.require_activation, NULL, 0);
+}
+
+static const char* conf_get_require_activation(void)
+{
+    return conf_get_bool(prefs_runtime_config.require_activation);
 }
 
 

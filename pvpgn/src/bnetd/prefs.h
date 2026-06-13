@@ -62,6 +62,7 @@ extern unsigned int prefs_get_irc_latency(void) ;
 extern unsigned int prefs_get_shutdown_delay(void) ;
 extern unsigned int prefs_get_shutdown_decr(void) ;
 extern unsigned int prefs_get_allow_new_accounts(void) ;
+extern unsigned int prefs_get_require_activation(void) ;
 extern unsigned int prefs_get_max_accounts(void) ;
 extern unsigned int prefs_get_kick_old_login(void) ;
 extern char const * prefs_get_channelfile(void) ;

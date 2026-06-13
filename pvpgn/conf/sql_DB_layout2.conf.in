@@ -55,6 +55,11 @@
 "cid int","'0'"
 "status int","'0'"
 "join_time int","'0'"
+[${prefix}custom]
+"uid int NOT NULL","'0'"
+"name varchar(128) NOT NULL","''"
+"value varchar(200) NOT NULL","''"
+:"CREATE UNIQUE INDEX ${prefix}custom_idx ON ${prefix}custom (uid,name)"
 [${prefix}arrangedteam]
 "teamid int NOT NULL PRIMARY KEY","'0'"
 "size int","0"

@@ -1658,13 +1658,13 @@ static int _client_loginreq2(t_connection * c, t_packet const *const packet)
 	    else {
 	        bn_int_set(&rpacket->u.server_loginreply1.message, SERVER_LOGINREPLY2_MESSAGE_BADPASS);
 	    }
-	} else if (account_get_actived(account) < (unsigned int)now) { /* default to false */
+	} else if (prefs_get_require_activation() && account_get_actived(account) < (unsigned int)now) { /* default to false */
       eventlog(eventlog_level_info, __FUNCTION__, "[%d] login for \"%s\" refused (this account need to be activated)", conn_get_socket(c), username);
       if (supports_locked_reply) {
           bn_int_set(&rpacket->u.server_loginreply1.message, SERVER_LOGINREPLY2_MESSAGE_LOCKED);
           packet_append_string(rpacket, "Activate your account at www.eurobattle.net");
 					/* unload user */
-					account_unload(account);	
+					account_unload(account);
       }
       else {
           bn_int_set(&rpacket->u.server_loginreply1.message, SERVER_LOGINREPLY2_MESSAGE_BADPASS);
@@ -2061,7 +2061,7 @@ static int _client_logonproofreq(t_connection * c, t_packet const *const packet)
 		    eventlog(eventlog_level_info, __FUNCTION__, "[%d] login for \"%s\" refused (this account is locked)", conn_get_socket(c), username);
 		    bn_int_set(&rpacket->u.server_logonproofreply.response, SERVER_LOGONPROOFREPLY_RESPONSE_CUSTOM);
 		    packet_append_string(rpacket, "This account has been locked.");
-    } else if (account_get_actived(account) < (unsigned int)now) { /* default to false */
+    } else if (prefs_get_require_activation() && account_get_actived(account) < (unsigned int)now) { /* default to false */
        eventlog(eventlog_level_info, __FUNCTION__, "[%d] login for \"%s\" refused (this account need to be activated)", conn_get_socket(c), username);
        bn_int_set(&rpacket->u.server_logonproofreply.response, SERVER_LOGONPROOFREPLY_RESPONSE_CUSTOM);
        packet_append_string(rpacket, "Activate account at www.eurobattle.net");

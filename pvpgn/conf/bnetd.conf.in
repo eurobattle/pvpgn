@@ -281,6 +281,10 @@ shutdown_decr = 60
 # false.
 new_accounts = true
 
+# Set to false to disable the account activation check (custom\user\actived).
+# When false, all accounts can log in regardless of activation status.
+require_activation = false
+
 # Set this to the maximum number of accounts you want to allow to be
 # created on your server. A value of 0 means infinite and is the default.
 #max_accounts = 0

@@ -27,4 +27,4 @@ pvpgn/src/client/bnstat
 pvpgn/src/test/bigint
 pvpgn/src/test/bnetsrp3_test
 pvpgn/src/tinycdb/bncdb
-
+pvpgn/build*
