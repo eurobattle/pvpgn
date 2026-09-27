@@ -26,6 +26,7 @@
 #include <sstream>
 #include <cstring>
 #include <cctype>
+#include <vector>
 
 #include "compat/strcasecmp.h"
 #include "compat/strncasecmp.h"
@@ -3460,6 +3461,54 @@ struct glist_cbdata {
     t_packet *rpacket;
 };
 
+struct glist_priority_data {
+    const std::vector<std::string>& preferred_hosts;
+    // One bucket per configured host, followed by a bucket for all other games.
+    std::vector<std::vector<t_game*>> buckets;
+};
+
+static int _glist_priority_cb(t_game* game, void* data)
+{
+    auto& priority = *static_cast<glist_priority_data*>(data);
+    const auto* owner = game_get_owner(game);
+    const auto* username = owner ? conn_get_username(owner) : nullptr;
+
+    // Determine priority once per game. The first matching host wins; if none
+    // matches, the index reaches preferred_hosts.size(), the final bucket.
+    std::size_t bucket = 0;
+    for (; bucket < priority.preferred_hosts.size(); ++bucket) {
+	if (username && strcasecmp(username, priority.preferred_hosts[bucket].c_str()) == 0)
+	    break;
+    }
+    // Appending preserves traversal order within each bucket, including the
+    // games from unlisted hosts. Only pointers are stored; games are not copied.
+    priority.buckets[bucket].push_back(game);
+    return 0;
+}
+
+static void _glist_traverse(t_glist_func cb, void *data)
+{
+    const auto& preferred_hosts = prefs_get_gamelist_priority_hosts();
+    if (preferred_hosts.empty()) {
+	gamelist_traverse(cb, data);
+	return;
+    }
+
+    glist_priority_data priority{preferred_hosts, {}};
+    priority.buckets.resize(preferred_hosts.size() + 1);
+    gamelist_traverse(_glist_priority_cb, &priority);
+
+    // Visit configured hosts in priority order, then everyone else. Grouping
+    // happens before the existing callback applies visibility filters and the
+    // packet size limit, so ordinary games cannot fill the reply first.
+    for (const auto& bucket : priority.buckets) {
+	for (auto* game : bucket) {
+	    if (cb(game, data) < 0)
+		return;
+	}
+    }
+}
+
 static int _glist_cb(t_game * game, void *data)
 {
     struct glist_cbdata *cbdata = (struct glist_cbdata*)data;
@@ -3655,7 +3704,7 @@ static int _client_gamelistreq(t_connection * c, t_packet const *const packet)
 	cbdata.c = c;
 	cbdata.gtype = gtype;
 	cbdata.rpacket = rpacket;
-	gamelist_traverse(_glist_cb,&cbdata);
+	_glist_traverse(_glist_cb,&cbdata);
 
 	bn_int_set(&rpacket->u.server_gamelistreply.gamecount, cbdata.counter);
 	eventlog(eventlog_level_debug, __FUNCTION__, "[%d] GAMELISTREPLY sent %u of %u games", conn_get_socket(c), cbdata.counter, cbdata.tcount);

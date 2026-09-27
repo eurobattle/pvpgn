@@ -76,6 +76,8 @@ static struct {
     unsigned int ask_new_channel;
     unsigned int hide_pass_games;
     unsigned int hide_started_games;
+    std::string gamelist_priority_hosts_value;
+    std::vector<std::string> gamelist_priority_hosts;
     unsigned int hide_temp_channels;
     unsigned int hide_addr;
     unsigned int enable_conn_all;
@@ -312,6 +314,10 @@ static int conf_setdef_hide_pass_games(void);
 static int conf_set_hide_started_games(const char *valstr);
 static const char *conf_get_hide_started_games(void);
 static int conf_setdef_hide_started_games(void);
+
+static int conf_set_gamelist_priority_hosts(const char *valstr);
+static const char *conf_get_gamelist_priority_hosts();
+static int conf_setdef_gamelist_priority_hosts();
 
 static int conf_set_hide_temp_channels(const char *valstr);
 static const char *conf_get_hide_temp_channels(void);
@@ -738,6 +744,7 @@ static t_conf_entry conf_table[] =
     { "ask_new_channel",        conf_set_ask_new_channel,      conf_get_ask_new_channel,conf_setdef_ask_new_channel},
     { "hide_pass_games",        conf_set_hide_pass_games,      conf_get_hide_pass_games,conf_setdef_hide_pass_games},
     { "hide_started_games",     conf_set_hide_started_games,   conf_get_hide_started_games,conf_setdef_hide_started_games},
+    { "gamelist_priority_hosts", conf_set_gamelist_priority_hosts, conf_get_gamelist_priority_hosts, conf_setdef_gamelist_priority_hosts},
     { "hide_temp_channels",     conf_set_hide_temp_channels,   conf_get_hide_temp_channels,conf_setdef_hide_temp_channels},
     { "hide_addr",              conf_set_hide_addr,            conf_get_hide_addr,    conf_setdef_hide_addr},
     { "enable_conn_all",        conf_set_enable_conn_all,      conf_get_enable_conn_all,conf_setdef_enable_conn_all},
@@ -3356,6 +3363,39 @@ static int conf_setdef_allowed_clients(void)
 static const char* conf_get_allowed_clients(void)
 {
     return prefs_runtime_config.allowed_clients;
+}
+
+
+extern const std::vector<std::string>& prefs_get_gamelist_priority_hosts()
+{
+    return prefs_runtime_config.gamelist_priority_hosts;
+}
+
+static int conf_set_gamelist_priority_hosts(const char *valstr)
+{
+    // Keep the text for the configuration API; parse only on load or reload.
+    prefs_runtime_config.gamelist_priority_hosts_value = valstr ? valstr : "";
+    auto& hosts = prefs_runtime_config.gamelist_priority_hosts;
+    hosts.clear();
+
+    std::istringstream entries{prefs_runtime_config.gamelist_priority_hosts_value};
+    std::string host;
+    while (std::getline(entries, host, ',')) {
+	const auto first = host.find_first_not_of(" \t\r\n");
+	if (first != std::string::npos)
+	    hosts.emplace_back(host.substr(first, host.find_last_not_of(" \t\r\n") - first + 1));
+    }
+    return 0;
+}
+
+static int conf_setdef_gamelist_priority_hosts()
+{
+    return conf_set_gamelist_priority_hosts(nullptr);
+}
+
+static const char *conf_get_gamelist_priority_hosts()
+{
+    return prefs_runtime_config.gamelist_priority_hosts_value.c_str();
 }
 
 

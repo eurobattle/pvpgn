@@ -625,3 +625,15 @@ clan_channel_default_private = 0
 # without accepted invitations need. This does not affect WAR3/W3XP ingame
 # clan management.
 clan_min_invites = 2
+
+
+###############################################################################
+# Game list host priority (SID_GETADVLISTEX / 0x09)                             #
+#-----------------------------------------------------------------------------#
+# Comma-separated creator usernames whose games appear first in public lists.
+# Usernames match exactly, ignoring case and surrounding whitespace. Games are
+# grouped in the order of usernames below; other games keep their existing order.
+# Existing game visibility filters still apply. Omit this setting or leave it
+# empty to keep the original game list order without sorting.
+# Example: gamelist_priority_hosts = "lagabuse.com.01,lagabuse.com.02,lagabuse.com.03"
+gamelist_priority_hosts = ""

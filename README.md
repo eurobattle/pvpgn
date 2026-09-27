@@ -2,7 +2,7 @@
 
 ```
 cd pvpgpn
-cmake -B buil -D -DWITH_MYSQL=ON
+cmake -B build -DWITH_MYSQL=ON
 cd build
 make
 sudo make install

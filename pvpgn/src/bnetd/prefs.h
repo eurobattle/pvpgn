@@ -178,6 +178,7 @@ extern unsigned int prefs_get_maxusers_per_channel(void) ;
 extern std::vector<std::string> prefs_get_mute_whitelist(void) ;
 extern char const * prefs_get_supportfile(void);
 extern char const * prefs_get_allowed_clients(void);
+extern const std::vector<std::string>& prefs_get_gamelist_priority_hosts();
 extern char const * prefs_get_ladder_games(void);
 extern char const * prefs_get_ladder_prefix(void);
 extern unsigned int prefs_get_max_connections(void);
