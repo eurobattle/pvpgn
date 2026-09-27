@@ -3454,11 +3454,26 @@ static int _client_message(t_connection * c, t_packet const *const packet)
     return 0;
 }
 
+struct glist_entry {
+    // Retain the prepared header so filtering/address translation run only once.
+    // The game is borrowed: selection and serialization finish in this request,
+    // before the server loop can process a game update or remove the game.
+    t_game* game;
+    t_server_gamelistreply_game header;
+};
+
 struct glist_cbdata {
     unsigned tcount, counter;
     t_connection *c;
     t_game_type gtype;
     t_packet *rpacket;
+    // With collect=true, entries and reply_size describe a pending reply;
+    // rpacket still contains only its header. Otherwise entries are sent directly.
+    // counter counts accepted entries during selection, then emitted entries
+    // after being reset for serialization. tcount always counts games examined.
+    bool collect;
+    std::size_t reply_size;
+    std::vector<glist_entry> entries;
 };
 
 struct glist_priority_data {
@@ -3469,6 +3484,9 @@ struct glist_priority_data {
 
 static std::size_t _glist_host_priority(const t_game* game, const std::vector<std::string>& preferred_hosts)
 {
+    // Match the account owning the game, not the lobby name or encoded map info.
+    // Returning hosts.size() also handles missing owners/accounts and provides
+    // the index of the final, non-preferred bucket.
     const auto* owner = game_get_owner(game);
     const auto* username = owner ? conn_get_username(owner) : nullptr;
     for (std::size_t i = 0; i < preferred_hosts.size(); ++i) {
@@ -3476,18 +3494,6 @@ static std::size_t _glist_host_priority(const t_game* game, const std::vector<st
 	    return i;
     }
     return preferred_hosts.size();
-}
-
-static unsigned int _glist_elapsed_time(const t_game* game)
-{
-    const auto& preferred_hosts = prefs_get_gamelist_priority_hosts();
-    if (!preferred_hosts.empty() && _glist_host_priority(game, preferred_hosts) < preferred_hosts.size()) {
-	// SID_GETADVLISTEX carries elapsed seconds, not an absolute timestamp.
-	// Advertise preferred hosts' games as newly created on every refresh so
-	// clients ordering by age can prioritize them independently of packet order.
-	return 0;
-    }
-    return SERVER_GAMELISTREPLY_GAME_UNKNOWN6;
 }
 
 static int _glist_priority_cb(t_game* game, void* data)
@@ -3507,31 +3513,22 @@ static int _glist_priority_cb(t_game* game, void* data)
     return 0;
 }
 
-static void _glist_traverse(t_glist_func cb, void *data)
+static void _glist_append_entry(glist_cbdata& data, const glist_entry& entry)
 {
-    const auto& preferred_hosts = prefs_get_gamelist_priority_hosts();
+    // Called only for entries that passed the size check. The first entry has
+    // no spacer; later entries get one according to their final packet position.
+    const bn_int game_spacer = { 1, 0, 0, 0 };
+    if (data.counter)
+        packet_append_data(data.rpacket, &game_spacer, sizeof(game_spacer));
+
+    packet_append_data(data.rpacket, &entry.header, sizeof(entry.header));
+    packet_append_string(data.rpacket, game_get_name(entry.game));
+    packet_append_string(data.rpacket, game_get_pass(entry.game));
+    packet_append_string(data.rpacket, game_get_info(entry.game));
+    ++data.counter;
     eventlog(eventlog_level_debug, __FUNCTION__,
-	"GAMELIST priority hosts=%lu first=\"%s\"",
-	static_cast<unsigned long>(preferred_hosts.size()),
-	preferred_hosts.empty() ? "(none)" : preferred_hosts.front().c_str());
-    if (preferred_hosts.empty()) {
-	gamelist_traverse(cb, data);
-	return;
-    }
-
-    glist_priority_data priority{preferred_hosts, {}};
-    priority.buckets.resize(preferred_hosts.size() + 1);
-    gamelist_traverse(_glist_priority_cb, &priority);
-
-    // Visit configured hosts in priority order, then everyone else. Grouping
-    // happens before the existing callback applies visibility filters and the
-    // packet size limit, so ordinary games cannot fill the reply first.
-    for (const auto& bucket : priority.buckets) {
-	for (auto* game : bucket) {
-	    if (cb(game, data) < 0)
-		return;
-	}
-    }
+        "[%d] GAMELIST entry=%u game=\"%s\" elapsed=%u",
+        conn_get_socket(data.c), data.counter, game_get_name(entry.game), bn_int_get(entry.header.unknown6));
 }
 
 static int _glist_cb(t_game * game, void *data)
@@ -3541,7 +3538,6 @@ static int _glist_cb(t_game * game, void *data)
     t_server_gamelistreply_game glgame;
     unsigned int addr;
     unsigned short port;
-    bn_int game_spacer = { 1, 0, 0, 0 };
 
     cbdata->tcount++;
     eventlog(eventlog_level_debug, __FUNCTION__, "[%d] considering listing game=\"%s\", pass=\"%s\" clienttag=\"%s\" gtype=%d", conn_get_socket(cbdata->c), game_get_name(game), game_get_pass(game), tag_uint_to_str(clienttag_str, game_get_clienttag(game)), (int) game_get_type(game));
@@ -3597,27 +3593,86 @@ static int _glist_cb(t_game * game, void *data)
 	    eventlog(eventlog_level_warn, __FUNCTION__, "[%d] game \"%s\" has bad status=%d", conn_get_socket(cbdata->c), game_get_name(game), (int) game_get_status(game));
 	    bn_int_set(&glgame.status, 0);
     }
-    bn_int_set(&glgame.unknown6, _glist_elapsed_time(game));
+    bn_int_set(&glgame.unknown6, SERVER_GAMELISTREPLY_GAME_UNKNOWN6);
 
-    if (packet_get_size(cbdata->rpacket) + sizeof(glgame) + std::strlen(game_get_name(game)) + 1 + std::strlen(game_get_pass(game)) + 1 + std::strlen(game_get_info(game)) + 1 > MAX_PACKET_SIZE) {
-	eventlog(eventlog_level_debug, __FUNCTION__, "[%d] out of room for games", conn_get_socket(cbdata->c));
-	return -1;			/* no more room */
+    // Count the inter-entry spacer too, so selection and serialization agree
+    // exactly at the packet boundary even after the entries are reordered.
+    // N entries always need N-1 spacers, so changing their order cannot change
+    // the total size. The +1 terms include each string's terminating null byte.
+    const auto entry_size = sizeof(glgame) + std::strlen(game_get_name(game)) + 1 +
+        std::strlen(game_get_pass(game)) + 1 + std::strlen(game_get_info(game)) + 1 +
+        (cbdata->counter ? sizeof(bn_int) : 0);
+    const auto reply_size = cbdata->collect ? cbdata->reply_size : packet_get_size(cbdata->rpacket);
+    if (reply_size + entry_size > MAX_PACKET_SIZE) {
+        eventlog(eventlog_level_debug, __FUNCTION__, "[%d] out of room for games", conn_get_socket(cbdata->c));
+        return -1;
     }
 
-    if (cbdata->counter) {
-	packet_append_data(cbdata->rpacket, &game_spacer, sizeof(game_spacer));
+    if (cbdata->collect) {
+        // All visibility checks have passed. Reserve space without writing yet;
+        // filtered games returned earlier and consume neither space nor a slot.
+        cbdata->entries.push_back({game, glgame});
+        cbdata->reply_size += entry_size;
+        ++cbdata->counter;
+    } else {
+        _glist_append_entry(*cbdata, {game, glgame});
     }
-
-    packet_append_data(cbdata->rpacket, &glgame, sizeof(glgame));
-    packet_append_string(cbdata->rpacket, game_get_name(game));
-    packet_append_string(cbdata->rpacket, game_get_pass(game));
-    packet_append_string(cbdata->rpacket, game_get_info(game));
-    cbdata->counter++;
-    eventlog(eventlog_level_debug, __FUNCTION__,
-	"[%d] GAMELIST entry=%u game=\"%s\" elapsed=%u",
-	conn_get_socket(cbdata->c), cbdata->counter, game_get_name(game), bn_int_get(glgame.unknown6));
-
     return 0;
+}
+
+static void _glist_traverse(glist_cbdata& data)
+{
+    const auto& preferred_hosts = prefs_get_gamelist_priority_hosts();
+    eventlog(eventlog_level_debug, __FUNCTION__,
+        "GAMELIST priority hosts=%lu first=\"%s\"",
+        static_cast<unsigned long>(preferred_hosts.size()),
+        preferred_hosts.empty() ? "(none)" : preferred_hosts.front().c_str());
+    if (preferred_hosts.empty()) {
+        // Leave the original traversal/serialization order intact when disabled.
+        gamelist_traverse(_glist_cb, &data);
+        return;
+    }
+
+    glist_priority_data priority{preferred_hosts, {}};
+    priority.buckets.resize(preferred_hosts.size() + 1);
+    gamelist_traverse(_glist_priority_cb, &priority);
+
+    // Select eligible games in priority order before writing the reply. This
+    // reserves packet space for preferred hosts even though they are sent last.
+    data.collect = true;
+    // Include the existing reply header in the budget, not just the game entries.
+    data.reply_size = packet_get_size(data.rpacket);
+    const auto collect_bucket = [&data](const std::vector<t_game*>& bucket) {
+        for (auto* game : bucket) {
+            // Zero includes filtered-out games; only a negative return means
+            // the packet is full. Keep the entries already selected in that case.
+            if (_glist_cb(game, &data) < 0)
+                return false;
+        }
+        return true;
+    };
+    bool room = true;
+    for (std::size_t i = 0; i < preferred_hosts.size() && room; ++i)
+        room = collect_bucket(priority.buckets[i]);
+    // This is the number actually accepted, not the number of configured hosts.
+    // It separates the preferred prefix from the ordinary suffix added below.
+    const auto preferred_count = data.entries.size();
+    if (room)
+        collect_bucket(priority.buckets.back());
+
+    // WC3 displays the reply in reverse wire order. Keep ordinary games in
+    // their original wire order, then append preferred entries from lowest to
+    // highest priority, so the first configured host appears at the top.
+    // Example: selected [P1, P2, A, B] -> packet [A, B, P2, P1]
+    //          -> WC3 display [P1, P2, B, A]. A/B keep their old UI order.
+    // Reset only the emission counter; do not rerun filtering or count games
+    // twice. Even if selection stopped early, every accepted entry is emitted.
+    data.collect = false;
+    data.counter = 0;
+    for (std::size_t i = preferred_count; i < data.entries.size(); ++i)
+        _glist_append_entry(data, data.entries[i]);
+    for (std::size_t i = preferred_count; i > 0; --i)
+        _glist_append_entry(data, data.entries[i - 1]);
 }
 
 static int _client_gamelistreq(t_connection * c, t_packet const *const packet)
@@ -3703,7 +3758,7 @@ static int _client_gamelistreq(t_connection * c, t_packet const *const packet)
 		    bn_int_nset(&glgame.game_ip, addr);
 		    bn_int_set(&glgame.unknown4, SERVER_GAMELISTREPLY_GAME_UNKNOWN4);
 		    bn_int_set(&glgame.unknown5, SERVER_GAMELISTREPLY_GAME_UNKNOWN5);
-		    bn_int_set(&glgame.unknown6, _glist_elapsed_time(game));
+		    bn_int_set(&glgame.unknown6, SERVER_GAMELISTREPLY_GAME_UNKNOWN6);
 
 		    packet_append_data(rpacket, &glgame, sizeof(glgame));
 		    packet_append_string(rpacket, game_get_name(game));
@@ -3720,7 +3775,7 @@ static int _client_gamelistreq(t_connection * c, t_packet const *const packet)
 	    eventlog(eventlog_level_debug, __FUNCTION__, "[%d] GAMELISTREPLY specific game doesn't seem to exist", conn_get_socket(c));
 	}
     } else {			/* list all public games of this type */
-	struct glist_cbdata cbdata;
+	glist_cbdata cbdata{};
 
 	if (gtype == game_type_all)
 	    eventlog(eventlog_level_debug, __FUNCTION__, "GAMELISTREPLY looking for public games tag=\"%s\" bngtype=0x%08x gtype=all", tag_uint_to_str(clienttag_str, clienttag), bngtype);
@@ -3732,7 +3787,7 @@ static int _client_gamelistreq(t_connection * c, t_packet const *const packet)
 	cbdata.c = c;
 	cbdata.gtype = gtype;
 	cbdata.rpacket = rpacket;
-	_glist_traverse(_glist_cb,&cbdata);
+	_glist_traverse(cbdata);
 
 	bn_int_set(&rpacket->u.server_gamelistreply.gamecount, cbdata.counter);
 	eventlog(eventlog_level_debug, __FUNCTION__, "[%d] GAMELISTREPLY sent %u of %u games", conn_get_socket(c), cbdata.counter, cbdata.tcount);

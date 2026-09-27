@@ -658,10 +658,10 @@ clan_min_invites = 2
 # Game list host priority (SID_GETADVLISTEX / 0x09)                             #
 #-----------------------------------------------------------------------------#
 # Comma-separated creator usernames whose games appear first in public lists.
-# Usernames match exactly, ignoring case and surrounding whitespace. Games are
-# grouped in the order of usernames below in the server response; other games
-# keep their existing order. Preferred hosts' games also advertise zero
-# elapsed seconds, presenting them as newly created to clients that sort by age.
+# Usernames match exactly, ignoring case and surrounding whitespace. The first
+# username has highest priority. Warcraft III displays games in reverse packet
+# order, so preferred games are sent last, in reverse priority order. Space for
+# them is reserved first; other games keep their existing packet order.
 # Existing game visibility filters still apply. Omit this setting or leave it
 # empty to keep the original game list order and elapsed-time values.
 # Example: gamelist_priority_hosts = "lagabuse.com.01,lagabuse.com.02,lagabuse.com.03"
