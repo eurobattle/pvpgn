@@ -3467,19 +3467,40 @@ struct glist_priority_data {
     std::vector<std::vector<t_game*>> buckets;
 };
 
+static std::size_t _glist_host_priority(const t_game* game, const std::vector<std::string>& preferred_hosts)
+{
+    const auto* owner = game_get_owner(game);
+    const auto* username = owner ? conn_get_username(owner) : nullptr;
+    for (std::size_t i = 0; i < preferred_hosts.size(); ++i) {
+	if (username && strcasecmp(username, preferred_hosts[i].c_str()) == 0)
+	    return i;
+    }
+    return preferred_hosts.size();
+}
+
+static unsigned int _glist_elapsed_time(const t_game* game)
+{
+    const auto& preferred_hosts = prefs_get_gamelist_priority_hosts();
+    if (!preferred_hosts.empty() && _glist_host_priority(game, preferred_hosts) < preferred_hosts.size()) {
+	// SID_GETADVLISTEX carries elapsed seconds, not an absolute timestamp.
+	// Advertise preferred hosts' games as newly created on every refresh so
+	// clients ordering by age can prioritize them independently of packet order.
+	return 0;
+    }
+    return SERVER_GAMELISTREPLY_GAME_UNKNOWN6;
+}
+
 static int _glist_priority_cb(t_game* game, void* data)
 {
     auto& priority = *static_cast<glist_priority_data*>(data);
+    // The first matching host wins; unmatched games go in the final bucket.
+    const auto bucket = _glist_host_priority(game, priority.preferred_hosts);
     const auto* owner = game_get_owner(game);
     const auto* username = owner ? conn_get_username(owner) : nullptr;
-
-    // Determine priority once per game. The first matching host wins; if none
-    // matches, the index reaches preferred_hosts.size(), the final bucket.
-    std::size_t bucket = 0;
-    for (; bucket < priority.preferred_hosts.size(); ++bucket) {
-	if (username && strcasecmp(username, priority.preferred_hosts[bucket].c_str()) == 0)
-	    break;
-    }
+    eventlog(eventlog_level_debug, __FUNCTION__,
+	"GAMELIST priority game=\"%s\" owner=\"%s\" preferred_host=\"%s\"",
+	game_get_name(game), username ? username : "(none)",
+	bucket < priority.preferred_hosts.size() ? priority.preferred_hosts[bucket].c_str() : "(none)");
     // Appending preserves traversal order within each bucket, including the
     // games from unlisted hosts. Only pointers are stored; games are not copied.
     priority.buckets[bucket].push_back(game);
@@ -3489,6 +3510,10 @@ static int _glist_priority_cb(t_game* game, void* data)
 static void _glist_traverse(t_glist_func cb, void *data)
 {
     const auto& preferred_hosts = prefs_get_gamelist_priority_hosts();
+    eventlog(eventlog_level_debug, __FUNCTION__,
+	"GAMELIST priority hosts=%lu first=\"%s\"",
+	static_cast<unsigned long>(preferred_hosts.size()),
+	preferred_hosts.empty() ? "(none)" : preferred_hosts.front().c_str());
     if (preferred_hosts.empty()) {
 	gamelist_traverse(cb, data);
 	return;
@@ -3572,7 +3597,7 @@ static int _glist_cb(t_game * game, void *data)
 	    eventlog(eventlog_level_warn, __FUNCTION__, "[%d] game \"%s\" has bad status=%d", conn_get_socket(cbdata->c), game_get_name(game), (int) game_get_status(game));
 	    bn_int_set(&glgame.status, 0);
     }
-    bn_int_set(&glgame.unknown6, SERVER_GAMELISTREPLY_GAME_UNKNOWN6);
+    bn_int_set(&glgame.unknown6, _glist_elapsed_time(game));
 
     if (packet_get_size(cbdata->rpacket) + sizeof(glgame) + std::strlen(game_get_name(game)) + 1 + std::strlen(game_get_pass(game)) + 1 + std::strlen(game_get_info(game)) + 1 > MAX_PACKET_SIZE) {
 	eventlog(eventlog_level_debug, __FUNCTION__, "[%d] out of room for games", conn_get_socket(cbdata->c));
@@ -3588,6 +3613,9 @@ static int _glist_cb(t_game * game, void *data)
     packet_append_string(cbdata->rpacket, game_get_pass(game));
     packet_append_string(cbdata->rpacket, game_get_info(game));
     cbdata->counter++;
+    eventlog(eventlog_level_debug, __FUNCTION__,
+	"[%d] GAMELIST entry=%u game=\"%s\" elapsed=%u",
+	conn_get_socket(cbdata->c), cbdata->counter, game_get_name(game), bn_int_get(glgame.unknown6));
 
     return 0;
 }
@@ -3675,7 +3703,7 @@ static int _client_gamelistreq(t_connection * c, t_packet const *const packet)
 		    bn_int_nset(&glgame.game_ip, addr);
 		    bn_int_set(&glgame.unknown4, SERVER_GAMELISTREPLY_GAME_UNKNOWN4);
 		    bn_int_set(&glgame.unknown5, SERVER_GAMELISTREPLY_GAME_UNKNOWN5);
-		    bn_int_set(&glgame.unknown6, SERVER_GAMELISTREPLY_GAME_UNKNOWN6);
+		    bn_int_set(&glgame.unknown6, _glist_elapsed_time(game));
 
 		    packet_append_data(rpacket, &glgame, sizeof(glgame));
 		    packet_append_string(rpacket, game_get_name(game));

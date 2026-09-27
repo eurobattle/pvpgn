@@ -2773,7 +2773,7 @@ typedef struct
     bn_int   unknown4;
     bn_int   unknown5; /* FIXME: got to figure out where latency is */
     bn_int   status;
-    bn_int   unknown6;
+    bn_int   unknown6; /* elapsed time in seconds */
     /* game name */
     /* clear password */
     /* info */
@@ -2787,7 +2787,7 @@ typedef struct
 #define SERVER_GAMELISTREPLY_GAME_STATUS_FULL    0x00000006
 #define SERVER_GAMELISTREPLY_GAME_STATUS_STARTED 0x0000000e
 #define SERVER_GAMELISTREPLY_GAME_STATUS_DONE    0x0000000c
-#define SERVER_GAMELISTREPLY_GAME_UNKNOWN6       0x0000002b /* latency? */
+#define SERVER_GAMELISTREPLY_GAME_UNKNOWN6       0x0000002b /* legacy default elapsed seconds */
 
 #define SERVER_GAMELISTREPLY_TYPE_DIABLO2_OPEN 		0x0704 /* open game */
 /******************************************************/

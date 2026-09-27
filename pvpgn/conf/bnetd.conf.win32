@@ -632,8 +632,10 @@ clan_min_invites = 2
 #-----------------------------------------------------------------------------#
 # Comma-separated creator usernames whose games appear first in public lists.
 # Usernames match exactly, ignoring case and surrounding whitespace. Games are
-# grouped in the order of usernames below; other games keep their existing order.
+# grouped in the order of usernames below in the server response; other games
+# keep their existing order. Preferred hosts' games also advertise zero
+# elapsed seconds, presenting them as newly created to clients that sort by age.
 # Existing game visibility filters still apply. Omit this setting or leave it
-# empty to keep the original game list order without sorting.
+# empty to keep the original game list order and elapsed-time values.
 # Example: gamelist_priority_hosts = "lagabuse.com.01,lagabuse.com.02,lagabuse.com.03"
 gamelist_priority_hosts = ""
