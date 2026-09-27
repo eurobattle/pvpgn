@@ -20,6 +20,7 @@ if(WITH_FLAG_PEDANTIC)
 endif(WITH_FLAG_PEDANTIC)
 
 if(MYSQL_FOUND)
+    message("Adding -DWITH_SQL_MYSQL")
     add_definitions("-DWITH_SQL_MYSQL")
 endif(MYSQL_FOUND)
 if(SQLITE3_FOUND)

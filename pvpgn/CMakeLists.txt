@@ -13,6 +13,9 @@ set(CMAKE_INCLUDE_DIRECTORIES_PROJECT_BEFORE ON)
 
 project(pvpgn)
 
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 option(WITH_BNETD "compile the bnetd target" ON)
 option(WITH_D2CS "compile the d2cs target" ON)
 option(WITH_D2DBS "compile the d2dbs target" ON)
