@@ -427,10 +427,10 @@ extern char const * conn_state_get_str(t_conn_state state)
 
 extern int conn_set_realm_cb(void *data, void *newref);
 
+static t_connection * conn_alloc(int tsock, int usock, unsigned int real_local_addr, unsigned short real_local_port, unsigned int local_addr, unsigned short local_port, unsigned int addr, unsigned short port);
+
 extern t_connection * conn_create(int tsock, int usock, unsigned int real_local_addr, unsigned short real_local_port, unsigned int local_addr, unsigned short local_port, unsigned int addr, unsigned short port)
 {
-    t_connection * temp;
-
 
     if (tsock<0)
     {
@@ -442,6 +442,14 @@ extern t_connection * conn_create(int tsock, int usock, unsigned int real_local_
         eventlog(eventlog_level_error,__FUNCTION__,"got bad UDP socket %d",usock);
         return NULL;
     }
+
+    return conn_alloc(tsock,usock,real_local_addr,real_local_port,local_addr,local_port,addr,port);
+}
+
+/* allocates and registers a connection without validating the sockets */
+static t_connection * conn_alloc(int tsock, int usock, unsigned int real_local_addr, unsigned short real_local_port, unsigned int local_addr, unsigned short local_port, unsigned int addr, unsigned short port)
+{
+    t_connection * temp;
 
     temp = (t_connection*)xmalloc(sizeof(t_connection));
     temp->socket.tcp_sock               = tsock;
@@ -615,6 +623,87 @@ extern void conn_destroy_anongame(t_connection *c)
     xfree(c->protocol.w3.anongame);
     c->protocol.w3.anongame = NULL;
 }
+
+/*
+ * A virtual connection has no socket and is never seen by the server loop: it
+ * only exists so that code which needs a connection (e.g. handle_command())
+ * can be run on behalf of an account, by the REST API. Whatever is sent to it
+ * stays in its out queue as plain text lines (telnet format) for the caller to
+ * collect with conn_pull_outqueue(). It must be destroyed with
+ * conn_destroy_virtual() before returning to the server loop.
+ *
+ * The account is not logged in through it: an existing connection of that
+ * account is left alone and nobody is notified.
+ *
+ * clienttag is the client it pretends to be, for the commands which act on
+ * the games, channels or records of the caller's client; 0 for none.
+ */
+extern t_connection * conn_create_virtual(t_account * account, t_clienttag clienttag)
+{
+    t_connection * c;
+
+    if (!account)
+    {
+	eventlog(eventlog_level_error,__FUNCTION__,"got NULL account");
+	return NULL;
+    }
+
+    if (elist_empty(&arrayflist))
+    {
+	eventlog(eventlog_level_error,__FUNCTION__,"no free session slot (server is full)");
+	return NULL;
+    }
+
+    c = conn_alloc(-1,-1,0,0,0,0,0,0);
+    c->protocol.cclass  = conn_class_telnet;
+    c->protocol.state   = conn_state_loggedin;
+    c->protocol.account = account;
+    c->protocol.cflags |= conn_flags_virtual;
+    c->protocol.client.clienttag = clienttag;
+
+    return c;
+}
+
+
+extern void conn_destroy_virtual(t_connection * c)
+{
+    t_elem * elem;
+
+    if (!c)
+    {
+	eventlog(eventlog_level_error,__FUNCTION__,"got NULL connection");
+	return;
+    }
+    if (!(c->protocol.cflags & conn_flags_virtual))
+    {
+	eventlog(eventlog_level_error,__FUNCTION__,"got non-virtual connection");
+	return;
+    }
+
+    /* leave the channel while the account is still known */
+    if (c->protocol.chat.channel)
+    {
+	channel_del_connection(c->protocol.chat.channel,c,message_type_quit,NULL);
+	c->protocol.chat.channel = NULL;
+    }
+    /* it never logged in, so conn_destroy() must not log the account out */
+    c->protocol.account = NULL;
+
+    conn_destroy(c,&elem,DESTROY_FROM_CONNLIST);
+}
+
+
+extern int conn_is_virtual(t_connection const * c)
+{
+    if (!c)
+    {
+	eventlog(eventlog_level_error,__FUNCTION__,"got NULL connection");
+	return 0;
+    }
+
+    return (c->protocol.cflags & conn_flags_virtual)!=0;
+}
+
 
 extern void conn_destroy(t_connection * c, t_elem ** elem, int conn_or_dead_list)
 {
@@ -2337,7 +2426,8 @@ extern int conn_push_outqueue(t_connection * c, t_packet * packet)
     }
 
     queue_push_packet((t_queue * *)&c->protocol.queues.outqueue, packet);
-    if (!c->protocol.queues.outsizep++) fdwatch_update_fd(c->socket.fdw_idx, fdwatch_type_read | fdwatch_type_write);
+    /* a virtual connection has no socket to watch */
+    if (!c->protocol.queues.outsizep++ && !(c->protocol.cflags & conn_flags_virtual)) fdwatch_update_fd(c->socket.fdw_idx, fdwatch_type_read | fdwatch_type_write);
 
     return 0;
 }
@@ -2376,7 +2466,7 @@ extern t_packet * conn_pull_outqueue(t_connection * c)
     }
 
     if (c->protocol.queues.outsizep) {
-	if (!(--c->protocol.queues.outsizep)) fdwatch_update_fd(c->socket.fdw_idx, fdwatch_type_read);
+	if (!(--c->protocol.queues.outsizep) && !(c->protocol.cflags & conn_flags_virtual)) fdwatch_update_fd(c->socket.fdw_idx, fdwatch_type_read);
 	return queue_pull_packet((t_queue * *)&c->protocol.queues.outqueue);
     }
 
@@ -3445,7 +3535,9 @@ extern int conn_get_user_count_by_clienttag(t_clienttag ct)
      {
 	conn = (t_connection*)elem_get_data(curr);
 	if ( ( ct == conn->protocol.client.clienttag )
-	  && ( conn->protocol.state == conn_state_loggedin ) ) clienttagusers++;
+	  && ( conn->protocol.state == conn_state_loggedin )
+	  && !( conn->protocol.cflags & conn_flags_virtual ) ) /* not a user of that client */
+	    clienttagusers++;
      }
 
    return clienttagusers;
@@ -3675,6 +3767,8 @@ extern unsigned int connlist_login_get_length(void)
     LIST_TRAVERSE_CONST(conn_head,curr)
     {
 	c = (const t_connection*)elem_get_data(curr);
+	if (c->protocol.cflags & conn_flags_virtual) /* a REST API call, not a user */
+	    continue;
 	if ((c->protocol.state==conn_state_loggedin)&&
 	    ((c->protocol.cclass==conn_class_bnet)||(c->protocol.cclass==conn_class_bot)||(c->protocol.cclass==conn_class_telnet)
           ||(c->protocol.cclass==conn_class_irc)||(c->protocol.cclass==conn_class_wol)))

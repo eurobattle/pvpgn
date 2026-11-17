@@ -43,6 +43,11 @@ static struct {
     char const * filedir;
     char const * storage_path;
     char const * logfile;
+    char const * apilogfile;
+    unsigned int api_enable;
+    char const * api_listen_addr;
+    unsigned int api_listen_port;
+    unsigned int api_threads;
     char const * loglevels;
     char const * motdfile;
     char const * newsfile;
@@ -190,6 +195,26 @@ static int conf_setdef_storage_path(void);
 static int conf_set_logfile(const char *valstr);
 static const char *conf_get_logfile(void);
 static int conf_setdef_logfile(void);
+
+static int conf_set_api_logfile(const char *valstr);
+static const char *conf_get_api_logfile(void);
+static int conf_setdef_api_logfile(void);
+
+static int conf_set_api_enable(const char *valstr);
+static const char *conf_get_api_enable(void);
+static int conf_setdef_api_enable(void);
+
+static int conf_set_api_listen_addr(const char *valstr);
+static const char *conf_get_api_listen_addr(void);
+static int conf_setdef_api_listen_addr(void);
+
+static int conf_set_api_listen_port(const char *valstr);
+static const char *conf_get_api_listen_port(void);
+static int conf_setdef_api_listen_port(void);
+
+static int conf_set_api_threads(const char *valstr);
+static const char *conf_get_api_threads(void);
+static int conf_setdef_api_threads(void);
 
 static int conf_set_loglevels(const char *valstr);
 static const char *conf_get_loglevels(void);
@@ -713,6 +738,11 @@ static t_conf_entry conf_table[] =
     { "filedir",                conf_set_filedir,              conf_get_filedir,      conf_setdef_filedir},
     { "storage_path",           conf_set_storage_path,         conf_get_storage_path, conf_setdef_storage_path},
     { "logfile",                conf_set_logfile,              conf_get_logfile,      conf_setdef_logfile},
+    { "apilogfile",             conf_set_api_logfile,          conf_get_api_logfile,  conf_setdef_api_logfile},
+    { "api_enable",             conf_set_api_enable,           conf_get_api_enable,   conf_setdef_api_enable},
+    { "api_listen_addr",        conf_set_api_listen_addr,      conf_get_api_listen_addr, conf_setdef_api_listen_addr},
+    { "api_listen_port",        conf_set_api_listen_port,      conf_get_api_listen_port, conf_setdef_api_listen_port},
+    { "api_threads",            conf_set_api_threads,          conf_get_api_threads,  conf_setdef_api_threads},
     { "loglevels",              conf_set_loglevels,            conf_get_loglevels,    conf_setdef_loglevels},
     { "motdfile",               conf_set_motdfile,             conf_get_motdfile,     conf_setdef_motdfile},
     { "newsfile",               conf_set_newsfile,             conf_get_newsfile,     conf_setdef_newsfile},
@@ -941,6 +971,105 @@ static const char* conf_get_logfile(void)
     return prefs_runtime_config.logfile;
 }
 
+extern char const * prefs_get_api_logfile(void)
+{
+    return prefs_runtime_config.apilogfile;
+}
+
+static int conf_set_api_logfile(const char *valstr)
+{
+    return conf_set_str(&prefs_runtime_config.apilogfile,valstr,NULL);
+}
+
+static int conf_setdef_api_logfile(void)
+{
+    return conf_set_str(&prefs_runtime_config.apilogfile,NULL,BNETD_API_LOG_FILE);
+}
+
+static const char* conf_get_api_logfile(void)
+{
+    return prefs_runtime_config.apilogfile;
+}
+
+extern unsigned int prefs_get_api_enable(void)
+{
+    return prefs_runtime_config.api_enable;
+}
+
+static int conf_set_api_enable(const char *valstr)
+{
+    return conf_set_bool(&prefs_runtime_config.api_enable,valstr,0);
+}
+
+static int conf_setdef_api_enable(void)
+{
+    return conf_set_bool(&prefs_runtime_config.api_enable,NULL,0);
+}
+
+static const char* conf_get_api_enable(void)
+{
+    return conf_get_bool(prefs_runtime_config.api_enable);
+}
+
+extern char const * prefs_get_api_listen_addr(void)
+{
+    return prefs_runtime_config.api_listen_addr;
+}
+
+static int conf_set_api_listen_addr(const char *valstr)
+{
+    return conf_set_str(&prefs_runtime_config.api_listen_addr,valstr,NULL);
+}
+
+static int conf_setdef_api_listen_addr(void)
+{
+    return conf_set_str(&prefs_runtime_config.api_listen_addr,NULL,BNETD_API_LISTEN_ADDR);
+}
+
+static const char* conf_get_api_listen_addr(void)
+{
+    return prefs_runtime_config.api_listen_addr;
+}
+
+extern unsigned int prefs_get_api_listen_port(void)
+{
+    return prefs_runtime_config.api_listen_port;
+}
+
+static int conf_set_api_listen_port(const char *valstr)
+{
+    return conf_set_int(&prefs_runtime_config.api_listen_port,valstr,0);
+}
+
+static int conf_setdef_api_listen_port(void)
+{
+    return conf_set_int(&prefs_runtime_config.api_listen_port,NULL,BNETD_API_LISTEN_PORT);
+}
+
+static const char* conf_get_api_listen_port(void)
+{
+    return conf_get_int(prefs_runtime_config.api_listen_port);
+}
+
+extern unsigned int prefs_get_api_threads(void)
+{
+    return prefs_runtime_config.api_threads;
+}
+
+static int conf_set_api_threads(const char *valstr)
+{
+    return conf_set_int(&prefs_runtime_config.api_threads,valstr,0);
+}
+
+static int conf_setdef_api_threads(void)
+{
+    return conf_set_int(&prefs_runtime_config.api_threads,NULL,BNETD_API_THREADS);
+}
+
+static const char* conf_get_api_threads(void)
+{
+    return conf_get_int(prefs_runtime_config.api_threads);
+}
 
 extern char const * prefs_get_loglevels(void)
 {

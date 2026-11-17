@@ -274,6 +274,38 @@ shutdown_decr = 60
 
 
 ##############################################################################
+# REST API                                                                   #
+#----------------------------------------------------------------------------#
+
+# Enable the HTTP REST API. It runs on its own thread(s); every request is
+# handed over to the main server loop, which may add up to ~20 ms latency.
+# Protected routes use HTTP Basic authentication with a bnetd account name
+# and password. That sends the password unencrypted and failed logins are not
+# rate limited, so only ever listen on a trusted interface (or put a TLS
+# reverse proxy in front).
+# Every request runs on a fresh connection, so the chat flood protection
+# (quota) does not apply to commands sent through the API (e.g. /whisper):
+# rate limit requests per client in the reverse proxy.
+# At most 1000 requests wait to be run; beyond that the API answers 503.
+api_enable = false
+
+# Address and port the REST API listens on.
+api_listen_addr = 127.0.0.1
+api_listen_port = 6180
+
+# Number of HTTP I/O threads (0 = one per CPU core). Request handling itself
+# always happens on the main server thread, so 1 is usually enough.
+api_threads = 1
+
+# File the REST API (Drogon) writes its own log to. Drogon appends ".log" to
+# the base name, and the directory must already exist and be writable.
+apilogfile = "${LOCALSTATEDIR}/api_bnetd.log"
+
+#                                                                            #
+##############################################################################
+
+
+##############################################################################
 # Policy options                                                             #
 #----------------------------------------------------------------------------#
 

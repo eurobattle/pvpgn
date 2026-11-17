@@ -1,5 +1,6 @@
 *.a
 *.cmake
+!pvpgn/cmake/DrogonStubs/*.cmake
 CMakeCache.txt
 CMakeFiles
 Makefile

@@ -1498,6 +1498,14 @@ extern unsigned int game_get_latency(t_game const * game)
     return 0; /* conn_get_latency(game->players[0]); */
 }
 
+/* The connection in player slot i, or NULL if the slot is empty or out of range. */
+extern t_connection * game_get_connection(t_game const * game, unsigned int i)
+{
+  if (!game || !game->connections || i >= game->count)
+    return NULL;
+  return game->connections[i];
+}
+
 extern t_connection * game_get_player_conn(t_game const * game, unsigned int i)
 {
   if (!game)

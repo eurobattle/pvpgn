@@ -104,7 +104,8 @@ typedef enum
   conn_flags_udpok		= 0x02,
   conn_flags_joingamewhisper	= 0x04,
   conn_flags_leavegamewhisper	= 0x08,
-  conn_flags_echoback		= 0x10
+  conn_flags_echoback		= 0x10,
+  conn_flags_virtual		= 0x20  /* no socket, see conn_create_virtual() */
 
 } t_conn_flags;
 
@@ -272,6 +273,9 @@ extern char const * conn_state_get_str(t_conn_state state) ;
 
 extern t_connection * conn_create(int tsock, int usock, unsigned int real_local_addr, unsigned short real_local_port, unsigned int local_addr, unsigned short local_port, unsigned int addr, unsigned short port) ;
 extern void conn_destroy(t_connection * c, t_elem ** elem, int conn_or_dead_list);
+extern t_connection * conn_create_virtual(t_account * account, t_clienttag clienttag);
+extern void conn_destroy_virtual(t_connection * c);
+extern int conn_is_virtual(t_connection const * c);
 extern int conn_match(t_connection const * c, char const * user);
 extern t_conn_class conn_get_class(t_connection const * c) ;
 extern void conn_set_class(t_connection * c, t_conn_class cclass);

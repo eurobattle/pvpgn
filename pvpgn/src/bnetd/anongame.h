@@ -28,6 +28,7 @@
 # undef JUST_NEED_TYPES
 #endif
 # include "anongame_gameresult.h"
+# include <ctime>
 
 namespace pvpgn
 {
@@ -43,6 +44,8 @@ typedef struct
     t_account *			account[ANONGAME_MAX_GAMECOUNT];
     int				result[ANONGAME_MAX_GAMECOUNT];
     t_anongame_gameresult *	results[ANONGAME_MAX_GAMECOUNT];
+    char const *		mapname;	/* map the match is played on; NULL if unknown */
+    std::time_t			created;	/* when the match was made */
 } t_anongameinfo;
 
 typedef struct
@@ -92,6 +95,14 @@ namespace pvpgn
 
 namespace bnetd
 {
+
+/*
+ * Calls cb for every entry waiting in the matchmaking queues, with its queue,
+ * the connection that queued it (for an arranged team, the team's inviter)
+ * and how many players the entry stands for (the team size, or 1).
+ */
+typedef void (*t_anongame_queue_func)(int queue, t_connection * c, int players, void * data);
+extern void		anongame_queue_traverse(t_anongame_queue_func cb, void * data);
 
 extern int		anongame_matchlists_create(void);
 extern int		anongame_matchlists_destroy(void);

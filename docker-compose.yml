@@ -1,0 +1,51 @@
+# bnetd + MySQL for integration testing.
+#
+#   docker compose up --build --wait     start and wait until both are healthy
+#   docker compose down                  stop; the database is thrown away
+#
+# The database lives in memory (tmpfs), so every "up" starts from the seed in
+# docker/mysql-init: 1 admin and 9 players, see 01-seed-accounts.sql.
+#
+# REST API: http://127.0.0.1:6180  (HTTP Basic auth, e.g. admin / adminpass)
+
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: pvpgn
+      MYSQL_USER: pvpgn
+      MYSQL_PASSWORD: pvpgn
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - ./docker/mysql-init:/docker-entrypoint-initdb.d:ro
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      # over TCP: the temporary server that runs the init scripts only listens
+      # on the socket, so this turns healthy once the seed is loaded
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-upvpgn", "-ppvpgn"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+
+  bnetd:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      BNETD_DB_HOST: db
+      BNETD_DB_NAME: pvpgn
+      BNETD_DB_USER: pvpgn
+      BNETD_DB_PASS: pvpgn
+    ports:
+      # only reachable from this machine
+      - "127.0.0.1:6112:6112/tcp"
+      - "127.0.0.1:6112:6112/udp"
+      - "127.0.0.1:6200:6200/tcp"
+      - "127.0.0.1:6180:6180/tcp"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/6180"]
+      interval: 2s
+      timeout: 5s
+      retries: 30

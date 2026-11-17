@@ -18,6 +18,9 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 #include "common/setup_before.h"
+#ifdef WITH_API
+# include "api/api.h"
+#endif
 
 #include <exception>
 #include <iostream>
@@ -369,6 +372,7 @@ int pre_server_startup(void)
     if (realmlist_create(prefs_get_realmfile())<0)
 	eventlog(eventlog_level_error,__FUNCTION__,"could not load realm list");
     topiclist_load(prefs_get_topicfile());
+
     return 0;
 }
 
@@ -514,21 +518,31 @@ try {
 
     /* now process connections and network traffic */
     if (a == 0) {
+	/* the REST API (if enabled) runs on its own thread(s) while the main loop
+	 * runs; it is stopped when this scope ends, before post_server_shutdown()
+	 * tears down the state its requests use */
+#ifdef WITH_API
+	pvpgn::bnetd::api::RestApi api;
+#else
+	if (prefs_get_api_enable())
+	    eventlog(eventlog_level_warn,__FUNCTION__,"api_enable is set, but bnetd was built without the REST API (WITH_API)");
+#endif
+
 	if (server_process() < 0)
 	    eventlog(eventlog_level_fatal,__FUNCTION__,"failed to initialize network (exiting)");
     }
 
-// run post server stuff and exit
+    // run post server stuff and exit
     post_server_shutdown(a);
 
-// Close hexfile
+    // Close hexfile
     if (hexstrm) {
 	std::fprintf(hexstrm,"# end of dump\n");
 	if (std::fclose(hexstrm)<0)
 	    eventlog(eventlog_level_error,__FUNCTION__,"could not close hexdump file \"%s\" after writing (std::fclose: %s)",cmdline_get_hexfile(),std::strerror(errno));
     }
 
-// Delete pidfile
+    // Delete pidfile
     if (pidfile) {
 	if (std::remove(pidfile)<0)
 	    eventlog(eventlog_level_error,__FUNCTION__,"could not remove pid file \"%s\" (std::remove: %s)",pidfile,std::strerror(errno));
