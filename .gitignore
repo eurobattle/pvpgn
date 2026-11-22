@@ -1,6 +1,7 @@
 *.a
 *.cmake
 !pvpgn/cmake/DrogonStubs/*.cmake
+!pvpgn/cmake/InstallIfMissing.cmake
 CMakeCache.txt
 CMakeFiles
 Makefile

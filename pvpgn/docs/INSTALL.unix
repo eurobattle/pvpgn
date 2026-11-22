@@ -33,9 +33,14 @@ just "make" but under *BSD it is usually named "gmake")
 $ make
 $ make install
 
-WARNING !! make install it will also overwrite the configuration files. Make a 
-backup of them before doing "make install" (read more about this in the UPDATE 
-file).
+"make install" keeps configuration files which already exist. The stock version 
+of each one is always installed next to it as <name>.dist, so after an upgrade 
+compare them (ex: diff bnetd.conf bnetd.conf.dist) and merge what you need (read 
+more about this in the UPDATE file). Existing files in the "files" directory are 
+kept too, but without a .dist copy.
+
+WARNING !! sql_DB_layout.conf and sql_DB_layout2.conf are always overwritten, 
+because they have to match the installed bnetd. Make a backup if you edited them.
 
 Next thing to do is to unpack the support files package in the "files" 
 directory of your installed pvpgn (look where pvpgn has installed and search 
