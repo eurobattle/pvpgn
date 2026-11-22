@@ -365,6 +365,7 @@ static int _handle_topic_command(t_connection * c, char const * text);
 static int _handle_moderate_command(t_connection * c, char const * text);
 static int _handle_clearstats_command(t_connection * c, char const * text);
 static int _handle_clearladder_command(t_connection * c, char const * text);
+static int _handle_anonacct_command(t_connection * c, char const * text);
 static int _handle_tos_command(t_connection * c, char const * text);
 static int _handle_swapicon_command(t_connection * c, char const *text);
 static int _handle_seticon_command(t_connection * c, char const *text);
@@ -497,6 +498,7 @@ static const t_command_table_row extended_command_table[] =
 	{ "/moderate"           , _handle_moderate_command },
 	{ "/clearstats"         , _handle_clearstats_command, true },
 	{ "/clearladder"        , _handle_clearladder_command, true },
+	{ "/anonacct"           , _handle_anonacct_command, true },
 
         { NULL                  , NULL }
 
@@ -515,6 +517,10 @@ char const * skip_command(char const * org_text)
 extern int handle_command(t_connection * c,  char const * text)
 {
   t_command_table_row const *p;
+
+  /* being closed, e.g. because its account was just anonymized */
+  if (conn_get_state(c)==conn_state_destroy)
+    return 0;
 
   if ((text[0]!='\0') && (conn_quota_exceeded(c,text)))
   {
@@ -6065,6 +6071,67 @@ static int _handle_clearladder_command(t_connection *c, char const *text)
 
     eventlog(eventlog_level_info,__FUNCTION__,"cleared %s ladder stats of %u accounts",clienttag_get_title(ctag),(unsigned int)accounts.size());
     snprintf(msgtemp, sizeof(msgtemp), "Cleared %.64s ladder stats of %u accounts",clienttag_get_title(ctag),(unsigned int)accounts.size());
+    message_send_text(c,message_type_info,c,msgtemp);
+
+    return 0;
+}
+
+/*
+ * /anonacct {<username>|#<uid>}: erases everything about the person behind an
+ * account, see accountlist_anonymize_account(). It can't be undone.
+ */
+static int _handle_anonacct_command(t_connection *c, char const *text)
+{
+    t_account * account;
+    t_connection * user;
+    t_elem * curr;
+    unsigned int uid;
+
+    /* the name must not survive in the log */
+    eventlog(eventlog_level_info,__FUNCTION__,"[COMMAND] user \"%s\" run command /anonacct",account_get_name(conn_get_account(c)));
+
+    text = skip_command(text);
+
+    if (text[0]=='\0') {
+	message_send_text(c,message_type_info,c,"usage: /anonacct {<username>|#<uid>}");
+	return 0;
+    }
+
+    account = accountlist_find_account(text);
+    /* a name made of digits can also find the account with that uid, only
+     * accept that if it was asked for */
+    if (!account || (text[0]!='#' && strcasecmp(account_get_name(account),text)!=0)) {
+	message_send_text(c,message_type_error,c,"Invalid user.");
+	return 0;
+    }
+
+    if (account_get_auth_admin(account,NULL)==1 ||
+	(account_get_command_groups(account) & command_get_group("/anonacct"))) {
+	message_send_text(c,message_type_error,c,"You cannot anonymize administrators.");
+	return 0;
+    }
+
+    uid = account_get_uid(account);
+
+    /* done first so that the others see it leave with its old name */
+    LIST_TRAVERSE(connlist(),curr)
+    {
+	if (!(user = (t_connection*)elem_get_data(curr)) || conn_get_account(user)!=account)
+	    continue;
+	if (conn_get_channel(user))
+	    conn_part_channel(user);
+	message_send_text(user,message_type_info,user,"Your account was deleted.");
+	conn_close_read(user);
+    }
+
+    if (accountlist_anonymize_account(account)<0) {
+	snprintf(msgtemp, sizeof(msgtemp), "Could not anonymize account " UID_FORMAT ", it is locked now. See the server log and try again.",uid);
+	message_send_text(c,message_type_error,c,msgtemp);
+	return 0;
+    }
+
+    eventlog(eventlog_level_info,__FUNCTION__,"anonymized account " UID_FORMAT,uid);
+    snprintf(msgtemp, sizeof(msgtemp), "Account " UID_FORMAT " was anonymized.",uid);
     message_send_text(c,message_type_info,c,msgtemp);
 
     return 0;

@@ -171,6 +171,7 @@
 7	/clearstats /kill /killsession
 7	/clearladder
 
+8	/anonacct
 8	/shutdown /rehash /set /commandgroups /cg /ladderactivate /operator /admin
 
 #	//////////////////////////////////////

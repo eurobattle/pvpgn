@@ -89,7 +89,7 @@ public:
 	Mail read(unsigned int) const;
 	void readAll(MailList& dest) const;
 	void erase(unsigned int);
-	void clear();
+	bool clear(); /* false if there could be mail left */
 
 private:
 	unsigned uid;

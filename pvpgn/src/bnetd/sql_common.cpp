@@ -763,6 +763,26 @@ extern int sql_remove_team(unsigned int teamid)
     return 0;
 }
 
+/* what is stored about the person behind an account outside of BNET, the layouts
+ * "sql" and "sql2" have it in common */
+extern int sql_erase_personal_tables(unsigned int uid)
+{
+    static const char * const tables[] = { "WOL", "custom", "friend", "profile", NULL };
+    const char * const * tab;
+
+    for (tab = tables; *tab; tab++)
+    {
+	snprintf(query, sizeof(query), "DELETE FROM %s%s WHERE " SQL_UID_FIELD "='%u'", tab_prefix, *tab, uid);
+	if (sql->query(query) != 0)
+	{
+	    eventlog(eventlog_level_error, __FUNCTION__, "error trying query: \"%s\"", query);
+	    return -1;
+	}
+    }
+
+    return 0;
+}
+
 }
 
 }

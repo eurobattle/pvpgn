@@ -105,6 +105,7 @@ extern int sql_remove_clanmember(int uid);
 extern int sql_load_teams(t_load_teams_func cb);
 extern int sql_write_team(void *data);
 extern int sql_remove_team(unsigned int teamid);
+extern int sql_erase_personal_tables(unsigned int uid);
 
 #endif /* SQL_INTERNAL */
 
