@@ -37,11 +37,6 @@ public:
 	explicit scoped_ptr(V* ptr_)
 	:ptr(ptr_) {}
 
-	/** initilize the object transfering ownership from an std::auto_ptr<> */
-	template<typename V>
-	explicit scoped_ptr(std::auto_ptr<V>& aptr)
-	:ptr(aptr.release()) {}
-
 	/** release memory if aquired ownershipt */
 	~scoped_ptr() throw() {
 		cleanup();
@@ -93,7 +88,7 @@ public:
 private:
 	T* ptr;
 
-	/* do not allow to copy a scoped_ptr (use std::auto_ptr<> if you need that) */
+	/* do not allow to copy a scoped_ptr (use std::unique_ptr<> if you need to transfer ownership) */
 	scoped_ptr(const scoped_ptr&);
 	scoped_ptr& operator=(const scoped_ptr&);
 

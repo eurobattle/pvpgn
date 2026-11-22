@@ -334,7 +334,7 @@ extern int main(int argc, char * argv[])
             usage(argv[0]);
 	else if (std::strcmp(argv[a],"-v")==0 || std::strcmp(argv[a],"--version")==0)
 	{
-            std::printf("version "PVPGN_VERSION"\n");
+            std::printf("version " PVPGN_VERSION "\n");
             return EXIT_SUCCESS;
 	}
         else if (std::strcmp(argv[a],"--client")==0 || std::strcmp(argv[a],"--owner")==0 ||
@@ -674,7 +674,7 @@ extern int main(int argc, char * argv[])
 		    if (str_to_uint(temp,&uid)<0 || uid<1)
 			std::printf("                         Account: UNKNOWN\n");
 		    else
-			std::printf("                         Account: "UID_FORMAT"\n",uid);
+			std::printf("                         Account: " UID_FORMAT "\n",uid);
 
 		    if (j<keys && (temp = packet_get_str_const(rpacket,strpos,256)))
 			strpos += std::strlen(temp)+1;

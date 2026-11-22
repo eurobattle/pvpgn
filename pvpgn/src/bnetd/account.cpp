@@ -78,8 +78,8 @@ static t_account * accountlist_add_account(t_account * account);
 
 static unsigned int account_hash(char const *username)
 {
-    register unsigned int h;
-    register unsigned int len = std::strlen(username);
+    unsigned int h;
+    unsigned int len = std::strlen(username);
 
     for (h = 5381; len > 0; --len, ++username) {
         h += h << 5;
@@ -613,7 +613,7 @@ static t_account * accountlist_add_account(t_account * account)
 	    curraccount = (t_account*)entry_get_data(curr);
 	    if (curraccount->uid==uid)
 	    {
-		eventlog(eventlog_level_debug,__FUNCTION__,"BUG: user \"%s\":"UID_FORMAT" already has an account (\"%s\":"UID_FORMAT")",username,uid,account_get_name(curraccount),curraccount->uid);
+		eventlog(eventlog_level_debug,__FUNCTION__,"BUG: user \"%s\":" UID_FORMAT " already has an account (\"%s\":" UID_FORMAT ")",username,uid,account_get_name(curraccount),curraccount->uid);
 		hashtable_entry_release(curr);
 		return NULL;
 	    }
@@ -626,7 +626,7 @@ static t_account * accountlist_add_account(t_account * account)
 	    {
 		    if (strcasecmp(tname,username)==0)
 		    {
-		        eventlog(eventlog_level_debug,__FUNCTION__,"BUG: user \"%s\":"UID_FORMAT" already has an account (\"%s\":"UID_FORMAT")",username,uid,tname,curraccount->uid);
+		        eventlog(eventlog_level_debug,__FUNCTION__,"BUG: user \"%s\":" UID_FORMAT " already has an account (\"%s\":" UID_FORMAT ")",username,uid,tname,curraccount->uid);
 		        hashtable_entry_release(curr);
 		        return NULL;
 		    }

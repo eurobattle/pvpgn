@@ -1108,7 +1108,7 @@ static int _handle_joingame_command(t_connection * conn, int numparams, char ** 
 			}
             else {
                 t_game * game = conn_get_game(conn);
-                t_channel * channel = channel_create(gamename,gamename,NULL,0,1,1,prefs_get_chanlog(), NULL, NULL, (prefs_get_maxusers_per_channel() > 0) ? prefs_get_maxusers_per_channel() : -1, 0, 0, 0, NULL);
+                t_channel * channel = channel_create(gamename,gamename,0,0,1,1,prefs_get_chanlog(), NULL, NULL, (prefs_get_maxusers_per_channel() > 0) ? prefs_get_maxusers_per_channel() : -1, 0, 0, 0, NULL);
                 game_set_channel(game, channel);
                 conn_set_channel_var(conn, channel);
                 channel_add_connection(channel, conn);
@@ -1664,6 +1664,7 @@ static int _ladder_is_integer(char * test)
         else 
    	        return 1; /* Is integer */
     }
+    return 0; /* Empty string is not integer */
 }
 
 static int _handle_listsearch_command(t_connection * conn, int numparams, char ** params, char * text)

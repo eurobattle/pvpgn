@@ -1041,6 +1041,7 @@ int irc_send_rpl_namreply_internal(t_connection * c, t_channel const * channel){
 	conn_unget_chatname(m,name);
     }
     irc_send(c,RPL_NAMREPLY,temp);
+    return 0;
 }
 
 extern int irc_send_rpl_namreply(t_connection * c, t_channel const * channel)

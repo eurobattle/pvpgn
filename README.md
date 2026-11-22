@@ -2,19 +2,33 @@
 
 This is Eurobattle.net's fork of PvPGN software.
 
+Install the build dependencies (Debian 13 "trixie"):
+```
+sudo apt update
+sudo apt install build-essential cmake pkg-config \
+    zlib1g-dev default-libmysqlclient-dev \
+    libdrogon-dev libjsoncpp-dev uuid-dev libssl-dev libbrotli-dev libc-ares-dev \
+    libyaml-cpp-dev \
+    libreflectcpp-dev libyyjson-dev libctre-dev libutfcpp-dev
+```
+
+`default-libmysqlclient-dev` and `pkg-config` are needed for `WITH_MYSQL`; the packages from `libdrogon-dev` on are needed for the REST API (`WITH_API`).
+
 Build:
 ```
-cd pvpgpn
-cmake -B build -DWITH_MYSQL=ON
+cd pvpgn
+cmake -B build -DWITH_MYSQL=ON -DWITH_API=ON
 cd build
 make
 sudo make install
 ```
 
+`WITH_API=ON` (the default) only compiles the REST API in. To turn it on, set `api_enable = true` in `bnetd.conf`; read the comments there before exposing it beyond localhost.
+
 Everything is installed under `/usr/local` by default. To change that, set `CMAKE_INSTALL_PREFIX` when configuring. For example, for `/opt/eurobattle/pvpgn`:
 
 ```
-cmake -B build -DWITH_MYSQL=ON -DCMAKE_INSTALL_PREFIX=/opt/eurobattle/pvpgn
+cmake -B build -DWITH_MYSQL=ON -DWITH_API=ON -DCMAKE_INSTALL_PREFIX=/opt/eurobattle/pvpgn
 cd build
 make
 sudo make install
