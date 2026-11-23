@@ -109,6 +109,7 @@ extern t_account * accountlist_find_account(char const * username);
 extern t_account * accountlist_find_account_by_uid(unsigned int uid);
 extern int accountlist_allow_add(void);
 extern t_account * accountlist_create_account(const char *username, const char *passhash1);
+extern int accountlist_anonymize_account(t_account * account);
 extern void accounts_get_attr(char const *);
 /* names and passwords */
 extern char const * account_get_name_real(t_account * account, char const * fn, unsigned int ln);

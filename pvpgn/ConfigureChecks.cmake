@@ -38,7 +38,9 @@ check_library_exists(bind __inet_aton "" HAVE_LIBBIND)
 
 # storage module checks
 if(WITH_MYSQL)
-    find_package(MySQL REQUIRED)
+    # CMake ships no FindMySQL module; use the client library's pkg-config file
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(MYSQL REQUIRED IMPORTED_TARGET mysqlclient)
     # disable strict ANSI checking when using MySQL headers
     # which contain invalid "long long" type
     set(WITH_ANSI OFF)
@@ -226,3 +228,7 @@ endif(WITH_ANSI)
 if(MSVC)
     add_definitions(-D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE)
 endif(MSVC)
+
+# CMAKE_REQUIRED_LIBRARIES above is only meant for our own checks; do not let
+# it leak into checks run by third-party packages (e.g. Drogon)
+unset(CMAKE_REQUIRED_LIBRARIES)

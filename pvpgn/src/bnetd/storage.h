@@ -59,6 +59,11 @@ typedef struct {
     int (*load_teams)(t_load_teams_func);
     int (*write_team)(void *);
     int (*remove_team)(unsigned int);
+    /* renames the account and erases what is stored for it except for the given
+     * attributes and its game stats (Record). Returns the storage info to use
+     * from now on (the old one is freed if it differs) or NULL if it failed, in
+     * which case the account still has its old name and it can be tried again. */
+    t_storage_info * (*anonymize_account)(t_storage_info *, const char *, const t_hlist *);
 } t_storage;
 
 }

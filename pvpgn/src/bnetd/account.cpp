@@ -22,6 +22,9 @@
 #include "account.h"
 
 #include <cstddef>
+#include <cstdio>
+#include <string>
+#include <random>
 #include <cassert>
 #include <cctype>
 
@@ -47,6 +50,7 @@
 #include "common/tag.h"
 #include "ladder.h"
 #include "clan.h"
+#include "mail.h"
 #include "server.h"
 #include "attrgroup.h"
 #include "attrlayer.h"
@@ -78,8 +82,8 @@ static t_account * accountlist_add_account(t_account * account);
 
 static unsigned int account_hash(char const *username)
 {
-    register unsigned int h;
-    register unsigned int len = std::strlen(username);
+    unsigned int h;
+    unsigned int len = std::strlen(username);
 
     for (h = 5381; len > 0; --len, ++username) {
         h += h << 5;
@@ -613,7 +617,7 @@ static t_account * accountlist_add_account(t_account * account)
 	    curraccount = (t_account*)entry_get_data(curr);
 	    if (curraccount->uid==uid)
 	    {
-		eventlog(eventlog_level_debug,__FUNCTION__,"BUG: user \"%s\":"UID_FORMAT" already has an account (\"%s\":"UID_FORMAT")",username,uid,account_get_name(curraccount),curraccount->uid);
+		eventlog(eventlog_level_debug,__FUNCTION__,"BUG: user \"%s\":" UID_FORMAT " already has an account (\"%s\":" UID_FORMAT ")",username,uid,account_get_name(curraccount),curraccount->uid);
 		hashtable_entry_release(curr);
 		return NULL;
 	    }
@@ -626,7 +630,7 @@ static t_account * accountlist_add_account(t_account * account)
 	    {
 		    if (strcasecmp(tname,username)==0)
 		    {
-		        eventlog(eventlog_level_debug,__FUNCTION__,"BUG: user \"%s\":"UID_FORMAT" already has an account (\"%s\":"UID_FORMAT")",username,uid,tname,curraccount->uid);
+		        eventlog(eventlog_level_debug,__FUNCTION__,"BUG: user \"%s\":" UID_FORMAT " already has an account (\"%s\":" UID_FORMAT ")",username,uid,tname,curraccount->uid);
 		        hashtable_entry_release(curr);
 		        return NULL;
 		    }
@@ -670,6 +674,127 @@ extern t_account * accountlist_create_account(const char *username, const char *
     account_save(res,FS_FORCE); /* sync new account to storage */
 
     return res;
+}
+
+/* the name an account gets when it is anonymized */
+static int account_get_anonymous_name(t_account * account, char * name, std::size_t size)
+{
+    /* for if it's too long, has a symbol which is not allowed or is taken */
+    static char const * const formats[] = { "deleted_%u", "deleted%u", "del%u", NULL };
+    t_account * other;
+    unsigned int i;
+    int len;
+
+    for (i=0; i<1000; i++)
+    {
+	if (i<sizeof(formats)/sizeof(formats[0])-1)
+	    len = snprintf(name, size, formats[i], account->uid);
+	else
+	    len = snprintf(name, size, "d%ux%u", account->uid, i);
+	if (len<0 || (std::size_t)len>=size || account_check_name(name)<0)
+	    continue;
+	/* might be somebody else's, or have been given to it already */
+	other = accountlist_find_account(name);
+	if (!other || other==account)
+	    return 0;
+    }
+
+    return -1;
+}
+
+/* the hash of a random password which nobody knows. An account must not be
+ * without one, it could be logged in to with any password then. */
+static std::string account_get_random_passhash(void)
+{
+    /* lower case only, that's what the clients hash */
+    static char const chars[] = "abcdefghijklmnopqrstuvwxyz0123456789";
+    std::random_device random;
+    std::uniform_int_distribution<std::size_t> dist(0,sizeof(chars)-2);
+    std::string pass;
+    t_hash hash;
+
+    while (pass.length()<12)
+	pass += chars[dist(random)];
+    bnet_hash(&hash,pass.length(),pass.c_str());
+
+    return hash_get_str(hash);
+}
+
+/*
+ * Turns the account into an anonymous one, which can't be logged in to: renames
+ * it and erases everything about the person behind it. What it has left is its
+ * uid, its game stats, its arranged teams, its clan and its place on the friend
+ * lists of others, so nothing changes for them but the name. The old name is
+ * free again.
+ *
+ * The connections of the account have to be closed by the caller. If it fails
+ * then the account still has its old name, so it can be tried again, but it's
+ * locked already: parts of it may be gone, and logging in would store new data.
+ */
+extern int accountlist_anonymize_account(t_account * account)
+{
+    char newname[MAX_USERNAME_LEN];
+    char const * name;
+
+    if (!account)
+    {
+	eventlog(eventlog_level_error,__FUNCTION__,"got NULL account");
+	return -1;
+    }
+
+    if (!(name = account_get_name(account)))
+	return -1;
+
+    const std::string passhash(account_get_random_passhash());
+
+    account_set_auth_lock(account,1);
+    account_set_strattr(account,"BNET\\acct\\passhash1",passhash.c_str());
+    if (attrgroup_save_keys(account->attrgroup,"BNET\\auth\\lockk")<0 ||
+	attrgroup_save_keys(account->attrgroup,"BNET\\acct\\passhash1")<0)
+    {
+	eventlog(eventlog_level_error,__FUNCTION__,"could not save the lock of account " UID_FORMAT,account->uid);
+	return -1;
+    }
+
+    if (account_get_anonymous_name(account,newname,sizeof(newname))<0)
+    {
+	eventlog(eventlog_level_error,__FUNCTION__,"no anonymous name available for account " UID_FORMAT,account->uid);
+	return -1;
+    }
+
+    if (!Mailbox(account->uid).clear())
+    {
+	eventlog(eventlog_level_error,__FUNCTION__,"could not delete the mail of account " UID_FORMAT,account->uid);
+	return -1;
+    }
+
+    {
+	/* current_at_team: it could be playing with its arranged team */
+	char const * const keep[] = { "BNET\\acct\\userid", "BNET\\current_at_team", NULL };
+	char const * const set[][2] = {
+	    { "BNET\\acct\\username",  newname },
+	    { "BNET\\acct\\passhash1", passhash.c_str() },
+	    { "BNET\\auth\\lockk",     "true" },
+	    { NULL, NULL }
+	};
+
+	if (attrgroup_anonymize(account->attrgroup,newname,keep,set)<0)
+	    return -1;
+    }
+
+    /* its own friend list */
+    friendlist_close(account->friends);
+    account->friends = NULL;
+    FLAG_CLEAR(&account->flags,ACCOUNT_FLAG_FLOADED);
+
+    hashtable_remove_data(accountlist_head,account,account->namehash);
+    xfree(account->name);
+    account->name = xstrdup(newname);
+    account->namehash = account_hash(newname);
+    if (hashtable_insert_data(accountlist_head,account,account->namehash)<0)
+	eventlog(eventlog_level_error,__FUNCTION__,"could not add account to list");
+
+    return 0;
 }
 
 extern int account_check_name(char const * name)

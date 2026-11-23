@@ -1,0 +1,12 @@
+# keep the build context small and free of local build output
+.git
+.idea
+web
+uploads
+d2pack109
+pvpgn/build*
+pvpgn/cmake-build-*
+# leftovers of an in-source build would shadow the generated files
+pvpgn/config.h
+**/CMakeCache.txt
+**/CMakeFiles

@@ -2113,7 +2113,7 @@ static int _cl_nam_general(t_wol_gameres_result * game_result, int num, wol_game
     int senderid = game_result->senderid;
     t_account * account = accountlist_find_account((char const *) data);
 
-    DEBUG2("Name of palyer %u: %s", (char *) num, data);
+    DEBUG2("Name of palyer %d: %s", num, (char const *) data);
 
     game_result->otheraccount = account;
 

@@ -79,6 +79,7 @@ static int file_remove_clanmember(int);
 static int file_load_teams(t_load_teams_func);
 static int file_write_team(void *);
 static int file_remove_team(unsigned int);
+static t_storage_info *file_anonymize_account(t_storage_info *, const char *, const t_hlist *);
 
 /* storage struct populated with the functions above */
 
@@ -102,7 +103,8 @@ t_storage storage_file = {
     file_remove_clanmember,
     file_load_teams,
     file_write_team,
-    file_remove_team
+    file_remove_team,
+    file_anonymize_account
 };
 
 /* start of actual file storage code */
@@ -843,8 +845,8 @@ static int file_remove_team(unsigned int teamid)
 
     char *tempname;
 
-    tempname = (char*)xmalloc(std::strlen(clansdir) + 1 + 8 + 1);
-    std::sprintf(tempname, "%s/%08x", clansdir, teamid);
+    tempname = (char*)xmalloc(std::strlen(teamsdir) + 1 + 8 + 1);
+    std::sprintf(tempname, "%s/%08x", teamsdir, teamid);
     if (std::remove((const char *) tempname) < 0)
     {
 	eventlog(eventlog_level_error, __FUNCTION__, "could not delete team file \"%s\" (std::remove: %s)", (char *) tempname, std::strerror(errno));
@@ -854,6 +856,48 @@ static int file_remove_team(unsigned int teamid)
     xfree(tempname);
 
     return 0;
+}
+
+static t_storage_info *file_anonymize_account(t_storage_info * info, const char *username, const t_hlist *attributes)
+{
+    t_storage_info *newinfo;
+
+    if (info == NULL)
+    {
+	eventlog(eventlog_level_error, __FUNCTION__, "got NULL info storage");
+	return NULL;
+    }
+
+    if (!prefs_get_savebyname())
+	return file_write_attrs(info, attributes) < 0 ? NULL : info;
+
+    /* the file is named after the account */
+    if (!(newinfo = file_create_account(username)))
+	return NULL;
+
+    if (file_cmp_info(info, newinfo) == 0)	/* has that name already */
+    {
+	file_free_info(newinfo);
+	return file_write_attrs(info, attributes) < 0 ? NULL : info;
+    }
+
+    if (file_write_attrs(newinfo, attributes) < 0)
+    {
+	file_free_info(newinfo);
+	return NULL;
+    }
+
+    if (std::remove((const char *) info) < 0)
+    {
+	eventlog(eventlog_level_error, __FUNCTION__, "could not delete account file \"%s\" (std::remove: %s)", (const char *) info, std::strerror(errno));
+	std::remove((const char *) newinfo);	/* there must not be two of them */
+	file_free_info(newinfo);
+	return NULL;
+    }
+
+    file_free_info(info);
+
+    return newinfo;
 }
 
 }

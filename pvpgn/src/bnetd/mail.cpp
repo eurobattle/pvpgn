@@ -228,9 +228,15 @@ Mailbox::erase(unsigned int idx)
 		INFO2("could not remove file \"%s\" (std::remove: %s)", fname.c_str(), std::strerror(errno));
 }
 
-void
+bool
 Mailbox::clear()
 {
+	if (!mdir) {
+		/* fine if there is none, otherwise it can't be read */
+		struct stat st;
+		return stat(path.c_str(), &st) < 0 && errno == ENOENT;
+	}
+
 	std::string fname(path);
 	fname += '/';
 
@@ -238,8 +244,11 @@ Mailbox::clear()
 
 	const char* dentry;
 	while((dentry = mdir.read())) {
-		std::remove((fname + dentry).c_str());
+		if (std::remove((fname + dentry).c_str()) < 0)
+			ERROR2("could not remove file \"%s\" (std::remove: %s)", (fname + dentry).c_str(), std::strerror(errno));
 	}
+
+	return empty();
 }
 
 extern int handle_mail_command(t_connection * c, char const * text)

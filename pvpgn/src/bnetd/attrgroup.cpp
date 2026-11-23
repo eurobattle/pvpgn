@@ -435,6 +435,124 @@ out:
     return 0;
 }
 
+/* Saves right away, like attrgroup_save(), but also tells if it has worked for
+ * all keys which start with prefix. If it hasn't, it will be tried again when
+ * the attrgroup is saved the next time. */
+extern int attrgroup_save_keys(t_attrgroup *attrgroup, const char *prefix)
+{
+    t_hlist *curr;
+    t_attr *attr;
+    const char *escprefix;
+    int res;
+
+    if (!attrgroup) {
+	eventlog(eventlog_level_error, __FUNCTION__, "got NULL attrgroup");
+	return -1;
+    }
+
+    if (!FLAG_ISSET(attrgroup->flags, ATTRGROUP_FLAG_LOADED))
+	return 0;
+
+    res = FLAG_ISSET(attrgroup->flags, ATTRGROUP_FLAG_DIRTY) ? 1 : 0;
+    hlist_for_each(curr,&attrgroup->list) {	/* what has failed to be saved earlier */
+	attr = hlist_entry(curr, t_attr, link);
+	if (attr_get_dirty(attr) && attr_get_val(attr)) res = 1;
+    }
+    if (!res) return 0;
+
+    if (storage->write_attrs(attrgroup->storage, &attrgroup->list) < 0) {
+	attrgroup_set_dirty(attrgroup);
+	return -1;
+    }
+    attrgroup_clear_dirty(attrgroup);
+
+    res = 0;
+    escprefix = attrgroup_escape_key(prefix);
+    hlist_for_each(curr,&attrgroup->list) {
+	attr = hlist_entry(curr, t_attr, link);
+	/* the storage skips the ones without a value */
+	if (attr_get_dirty(attr) && attr_get_key(attr) && attr_get_val(attr) &&
+	    !strncasecmp(attr_get_key(attr),escprefix,std::strlen(escprefix)))
+	    res = -1;
+    }
+    if (escprefix != prefix) xfree((void*)escprefix);
+    if (res < 0) attrgroup_set_dirty(attrgroup);
+
+    return res;
+}
+
+/* Erases all attributes, unsaved changes included, in memory and in the storage
+ * except for the game stats (Record) and the keys in keep, then sets the given
+ * { key, value } pairs. keep and set are NULL terminated. The account is stored
+ * under the name username afterwards. If it fails then nothing has changed in
+ * memory, but the storage may have lost some attributes already. */
+extern int attrgroup_anonymize(t_attrgroup *attrgroup, const char *username, const char * const keep[], const char * const set[][2])
+{
+    t_storage_info *info;
+    t_attr *attr, *copy;
+    t_hlist *curr, *save;
+    t_hlist fresh;
+    const char *key;
+    int i, dirty;
+
+    if (!attrgroup) {
+	eventlog(eventlog_level_error, __FUNCTION__, "got NULL attrgroup");
+	return -1;
+    }
+
+    if (attrgroup_load(attrgroup)) return -1;	/* eventlog happens earlier */
+
+    hlist_init(&fresh);
+    dirty = 0;
+
+    for (i = 0; keep[i]; i++) {
+	key = keep[i];
+	attr = attrgroup_find_attr(attrgroup, &key, 1);
+	if (attr && attr_get_val(attr)) {
+	    copy = attr_create(attr_get_key(attr), attr_get_val(attr));
+	    hlist_add(&fresh, &copy->link);
+	}
+	if (key != keep[i]) xfree((void*)key);
+    }
+
+    for (i = 0; set[i][0]; i++) {
+	key = attrgroup_escape_key(set[i][0]);
+	copy = attr_create(key, set[i][1]);
+	hlist_add(&fresh, &copy->link);
+	if (key != set[i][0]) xfree((void*)key);
+    }
+
+    hlist_for_each(curr,&attrgroup->list) {
+	attr = hlist_entry(curr, t_attr, link);
+	key = attr_get_key(attr);
+	if (key && !strncasecmp(key,"Record",6) && (key[6] == '\\' || key[6] == '_')) {
+	    copy = attr_create(key, attr_get_val(attr));
+	    if (attr_get_dirty(attr)) {		/* still to be saved as usual */
+		attr_set_dirty(copy);
+		dirty = 1;
+	    }
+	    hlist_add(&fresh, &copy->link);
+	}
+    }
+
+    info = storage->anonymize_account(attrgroup->storage, username, &fresh);
+
+    /* drop what isn't used anymore */
+    hlist_for_each_safe(curr, (info ? &attrgroup->list : &fresh), save) {
+	attr_destroy(hlist_entry(curr, t_attr, link));
+    }
+    if (!info) return -1;
+
+    attrgroup->storage = info;
+    hlist_init(&attrgroup->list);
+    hlist_for_each_safe(curr, &fresh, save) {
+	hlist_add(&attrgroup->list, curr);
+    }
+    if (!dirty) attrgroup_clear_dirty(attrgroup);
+
+    return 0;
+}
+
 }
 
 }

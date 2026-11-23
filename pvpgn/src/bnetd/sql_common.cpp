@@ -240,9 +240,9 @@ extern unsigned sql_read_maxuserid(void)
 	return 0;
     }
 
-    snprintf(query, sizeof(query), "SELECT max("SQL_UID_FIELD") FROM %sBNET", tab_prefix);
+    snprintf(query, sizeof(query), "SELECT max(" SQL_UID_FIELD ") FROM %sBNET", tab_prefix);
     if ((result = sql->query_res(query)) == NULL) {
-	eventlog(eventlog_level_error, __FUNCTION__, "error trying query: \"SELECT max("SQL_UID_FIELD") FROM %sBNET\"", tab_prefix);
+	eventlog(eventlog_level_error, __FUNCTION__, "error trying query: \"SELECT max(" SQL_UID_FIELD ") FROM %sBNET\"", tab_prefix);
 	return 0;
     }
 
@@ -286,7 +286,7 @@ extern int sql_read_accounts(int flag,t_read_accounts_func cb, void *data)
     /* don't actually load anything here if ST_FORCE is not set as SQL is indexed */
     if (!FLAG_ISSET(flag,ST_FORCE)) return 1;
 
-    snprintf(query, sizeof(query), "SELECT DISTINCT("SQL_UID_FIELD") FROM %sBNET", tab_prefix);
+    snprintf(query, sizeof(query), "SELECT DISTINCT(" SQL_UID_FIELD ") FROM %sBNET", tab_prefix);
     if ((result = sql->query_res(query)) != NULL)
     {
 	if (sql->num_rows(result) <= 1)
@@ -401,7 +401,7 @@ extern int sql_load_clans(t_load_clans_func cb)
 	    clan->channel_type = prefs_get_clan_channel_default_private();
 	    clan->members = list_create();
 
-	    snprintf(query, sizeof(query), "SELECT "SQL_UID_FIELD", status, join_time FROM %sclanmember WHERE cid='%u'", tab_prefix, clan->clanid);
+	    snprintf(query, sizeof(query), "SELECT " SQL_UID_FIELD ", status, join_time FROM %sclanmember WHERE cid='%u'", tab_prefix, clan->clanid);
 
 	    if ((result2 = sql->query_res(query)) != NULL)
 	    {
@@ -511,7 +511,7 @@ extern int sql_write_clan(void *data)
 	    if (member->modified)
 	    {
 		uid = account_get_uid(member->memberacc);
-		snprintf(query, sizeof(query), "SELECT count(*) FROM %sclanmember WHERE "SQL_UID_FIELD"='%u'",  tab_prefix, uid);
+		snprintf(query, sizeof(query), "SELECT count(*) FROM %sclanmember WHERE " SQL_UID_FIELD "='%u'",  tab_prefix, uid);
 		if ((result = sql->query_res(query)) != NULL)
 		{
 		    row = sql->fetch_row(result);
@@ -524,9 +524,9 @@ extern int sql_write_clan(void *data)
 		    num = std::atol(row[0]);
 		    sql->free_result(result);
 		    if (num < 1)
-			snprintf(query, sizeof(query), "INSERT INTO %sclanmember (cid, "SQL_UID_FIELD", status, join_time) VALUES('%u', '%u', '%d', '%u')", tab_prefix, clan->clanid, uid, member->status, (unsigned) member->join_time);
+			snprintf(query, sizeof(query), "INSERT INTO %sclanmember (cid, " SQL_UID_FIELD ", status, join_time) VALUES('%u', '%u', '%d', '%u')", tab_prefix, clan->clanid, uid, member->status, (unsigned) member->join_time);
 		    else
-			snprintf(query, sizeof(query), "UPDATE %sclanmember SET cid='%u', status='%d', join_time='%u' WHERE "SQL_UID_FIELD"='%u'", tab_prefix, clan->clanid, member->status, (unsigned) member->join_time, uid);
+			snprintf(query, sizeof(query), "UPDATE %sclanmember SET cid='%u', status='%d', join_time='%u' WHERE " SQL_UID_FIELD "='%u'", tab_prefix, clan->clanid, member->status, (unsigned) member->join_time, uid);
 		    if (sql->query(query) < 0)
 		    {
 			eventlog(eventlog_level_error, __FUNCTION__, "error trying query: \"%s\"", query);
@@ -597,7 +597,7 @@ extern int sql_remove_clanmember(int uid)
 	return -1;
     }
 
-    snprintf(query, sizeof(query), "DELETE FROM %sclanmember WHERE "SQL_UID_FIELD"='%u'", tab_prefix, uid);
+    snprintf(query, sizeof(query), "DELETE FROM %sclanmember WHERE " SQL_UID_FIELD "='%u'", tab_prefix, uid);
     if (sql->query(query) != 0)
     {
 	eventlog(eventlog_level_error, __FUNCTION__, "error trying query: \"%s\"", query);
@@ -759,6 +759,26 @@ extern int sql_remove_team(unsigned int teamid)
     snprintf(query, sizeof(query), "DELETE FROM %sarrangedteam WHERE teamid='%u'", tab_prefix, teamid);
     if (sql->query(query) != 0)
         return -1;
+
+    return 0;
+}
+
+/* what is stored about the person behind an account outside of BNET, the layouts
+ * "sql" and "sql2" have it in common */
+extern int sql_erase_personal_tables(unsigned int uid)
+{
+    static const char * const tables[] = { "WOL", "custom", "friend", "profile", NULL };
+    const char * const * tab;
+
+    for (tab = tables; *tab; tab++)
+    {
+	snprintf(query, sizeof(query), "DELETE FROM %s%s WHERE " SQL_UID_FIELD "='%u'", tab_prefix, *tab, uid);
+	if (sql->query(query) != 0)
+	{
+	    eventlog(eventlog_level_error, __FUNCTION__, "error trying query: \"%s\"", query);
+	    return -1;
+	}
+    }
 
     return 0;
 }

@@ -1,3 +1,5 @@
+include(${PROJECT_SOURCE_DIR}/cmake/InstallIfMissing.cmake)
+
 # generate the configs with proper line endings
 set(OUTPUT_CONFS ad.conf anongame_infos.conf address_translation.conf 
   autoupdate.conf bnalias.conf bnban.conf bnetd_default_user.plain 
@@ -24,24 +26,31 @@ if(WITH_BNETD)
   bnmotd-csCZ.txt bnmotd-deDE.txt bnmotd-esES.txt bnmotd-frFR.txt bnmotd-nlNL.txt
   bnmotd-plPL.txt bnmotd-ruRU.txt bnmotd-zhCN.txt bnmotd-zhTW.txt bnmotd-ptBR.txt  
   bnxpcalc.conf bnxplevel.conf channel.conf command_groups.conf news.txt 
-  realm.conf sql_DB_layout.conf sql_DB_layout2.conf supportfile.conf topics.conf 
-  tournament.conf versioncheck.conf)
+  realm.conf supportfile.conf topics.conf tournament.conf versioncheck.conf)
+
+  # not configuration: bnetd uses these to add missing tables and columns at
+  # startup, so they have to match the installed binary and are always replaced
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/sql_DB_layout.conf
+    ${CMAKE_CURRENT_BINARY_DIR}/sql_DB_layout2.conf DESTINATION ${SYSCONFDIR})
 
   # special treatement for non .in files
-  install(FILES bnetd_default_user.cdb DESTINATION ${SYSCONFDIR})
+  install_if_missing(DIST DESTINATION ${SYSCONFDIR} FILES bnetd_default_user.cdb)
 endif(WITH_BNETD)
 
 if(WITH_D2CS)
   set(D2CS_CONFS d2cs.conf anongame_infos.conf)
 
   # special treatement for non .in files
-  install(FILES d2server.ini DESTINATION ${SYSCONFDIR})
+  install_if_missing(DIST DESTINATION ${SYSCONFDIR} FILES d2server.ini)
 endif(WITH_D2CS)
 
 if(WITH_D2DBS)
   set(D2DBS_CONFS d2dbs.conf)
 endif(WITH_D2DBS)
 
-foreach(CONF_FILE ${BNETD_CONFS} ${D2CS_CONFS} ${D2DBS_CONFS})
-  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${CONF_FILE} DESTINATION ${SYSCONFDIR})
+# existing files are kept, the stock version is installed as <name>.dist
+set(INSTALL_CONFS ${BNETD_CONFS} ${D2CS_CONFS} ${D2DBS_CONFS})
+list(REMOVE_DUPLICATES INSTALL_CONFS)
+foreach(CONF_FILE ${INSTALL_CONFS})
+  install_if_missing(DIST DESTINATION ${SYSCONFDIR} FILES ${CMAKE_CURRENT_BINARY_DIR}/${CONF_FILE})
 endforeach(CONF_FILE)

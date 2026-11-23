@@ -200,5 +200,14 @@ Disband your clan
 /clearstats - used to clear game statistics of a given user/clienttag
 Syntax: /clearstats <user> <clienttag>
   <clienttag> can be one of DSHR,DRTL,SSHR,STAR,SEXP,W2BNE,WAR3,W3XP,ALL
+%clearladder
+/clearladder - used to clear the ladder stats of all ranked players
+Syntax: /clearladder <clienttag>
+  <clienttag> can be one of WAR3,W3XP
+%anonacct
+/anonacct - erases everything about the person behind an account (can't be undone)
+Syntax: /anonacct {<username>|#<uid>}
+  The account is renamed and locked. Its game stats, arranged teams, clan and
+  place on the friend lists of others are kept.
 #                                                                            #
 ##############################################################################

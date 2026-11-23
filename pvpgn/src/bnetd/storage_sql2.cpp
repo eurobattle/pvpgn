@@ -22,12 +22,14 @@
 
 #include <cstring>
 #include <cstdlib>
+#include <string>
 #include <cstdio>
 
 #include "compat/snprintf.h"
 
 #include "common/eventlog.h"
 #include "common/util.h"
+#include "compat/strcasecmp.h"
 
 #define SQL_INTERNAL
 # include "sql_common.h"
@@ -47,6 +49,7 @@ static t_attr *sql2_read_attr(t_storage_info *, const char *);
 static int sql2_write_attrs(t_storage_info *, const t_hlist *);
 static t_storage_info * sql2_read_account(const char *,unsigned);
 static const char *sql2_escape_key(const char *);
+static t_storage_info * sql2_anonymize_account(t_storage_info *, const char *, const t_hlist *);
 
 t_storage storage_sql2 = {
     sql_init,
@@ -68,7 +71,8 @@ t_storage storage_sql2 = {
     sql_remove_clanmember,
     sql_load_teams,
     sql_write_team,
-    sql_remove_team
+    sql_remove_team,
+    sql2_anonymize_account
 };
 
 static char query[512];
@@ -444,6 +448,77 @@ static t_storage_info * sql2_read_account(const char *name, unsigned uid)
 static const char *sql2_escape_key(const char *key)
 {
     return key;
+}
+
+static t_storage_info * sql2_anonymize_account(t_storage_info * info, const char *username, const t_hlist *attrs)
+{
+    char *tab, *col;
+    char esckey[DB_MAX_ATTRKEY * 2 + 1];
+    t_hlist *curr;
+    t_attr *attr;
+    t_hlist newname;
+    unsigned int uid;
+    int res;
+    std::string q;
+
+    if (!sql)
+    {
+	eventlog(eventlog_level_error, __FUNCTION__, "sql layer not initilized");
+	return NULL;
+    }
+
+    if (info == NULL || username == NULL || attrs == NULL)
+    {
+	eventlog(eventlog_level_error, __FUNCTION__, "got NULL parameter");
+	return NULL;
+    }
+
+    uid = *((unsigned int *) info);
+    if (uid == sql_defacct)
+    {
+	eventlog(eventlog_level_error, __FUNCTION__, "refusing to anonymize the default account");
+	return NULL;
+    }
+
+    if (sql_erase_personal_tables(uid) < 0)
+	return NULL;
+
+    /* whatever is not given is erased */
+    q = std::string("DELETE FROM ") + tab_prefix + "BNET WHERE " SQL_UID_FIELD " = '" + std::to_string(uid) + "' AND name NOT IN ('username'";
+    hlist_for_each(curr, (t_hlist*)attrs)
+    {
+	attr = hlist_entry(curr, t_attr, link);
+
+	if (_db_get_tab(attr_get_key(attr), &tab, &col) < 0 || strcasecmp(tab, "BNET") != 0)
+	    continue;
+	sql->escape_string(esckey, col, std::strlen(col));
+	q += std::string(", '") + esckey + "'";
+	attr_set_dirty(attr);
+    }
+    q += ")";
+    if (sql->query(q.c_str()))
+    {
+	eventlog(eventlog_level_error, __FUNCTION__, "could not erase table BNET for uid %u", uid);
+	return NULL;
+    }
+
+    if (sql2_write_attrs(info, attrs) < 0)
+	return NULL;
+    hlist_for_each(curr, (t_hlist*)attrs)
+	if (attr_get_dirty(hlist_entry(curr, t_attr, link)))
+	    return NULL;	/* logged when trying to write it */
+
+    /* the account is found by this one, hence the last */
+    hlist_init(&newname);
+    attr = attr_create("BNET\\username", username);
+    attr_set_dirty(attr);
+    hlist_add(&newname, &attr->link);
+    res = sql2_write_attrs(info, &newname);
+    if (attr_get_dirty(attr))
+	res = -1;
+    attr_destroy(attr);
+
+    return res < 0 ? NULL : info;
 }
 
 }

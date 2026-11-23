@@ -85,6 +85,9 @@
 #include "tournament.h"
 #include "anongame_infos.h"
 #include "topic.h"
+#ifdef WITH_API
+# include "api/api.h"
+#endif
 #include "common/setup_after.h"
 
 extern std::FILE * hexstrm; /* from main.c */
@@ -1424,6 +1427,11 @@ static void _server_mainloop(t_addrlist *laddrs)
 	    timerlist_check_timers(now);
 	    count = 0;
 	}
+
+#ifdef WITH_API
+	/* run the requests handed over by the REST API thread(s) */
+	api::process_pending_api_jobs();
+#endif
 
 /* no need to populate the fdwatch structures as they are populated on the fly
  * by sd_accept, conn_push_outqueue, conn_pull_outqueue, conn_destory */

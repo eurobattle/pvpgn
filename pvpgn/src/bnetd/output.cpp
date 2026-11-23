@@ -126,7 +126,7 @@ int output_standard_writer(std::FILE * fp)
 	LIST_TRAVERSE_CONST(connlist(),curr)
 	{
 	    conn = (t_connection*)elem_get_data(curr);
-	    if (conn_get_account(conn))
+	    if (conn_get_account(conn) && !conn_is_virtual(conn))
 		std::fprintf(fp,"\t\t<user><name>%s</name><clienttag>%s</clienttag><version>%s</version></user>\n",conn_get_username(conn),tag_uint_to_str(clienttag_str,conn_get_clienttag(conn)),conn_get_clientver(conn));
         }
 
@@ -173,7 +173,7 @@ int output_standard_writer(std::FILE * fp)
 	LIST_TRAVERSE_CONST(connlist(),curr)
 	{
     	    conn = (t_connection*)elem_get_data(curr);
-    	    if (conn_get_account(conn))
+    	    if (conn_get_account(conn) && !conn_is_virtual(conn))
 	    {
 		std::fprintf(fp,"user%d=%s,%s\n",number,tag_uint_to_str(clienttag_str,conn_get_clienttag(conn)),conn_get_username(conn));
 		number++;

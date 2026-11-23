@@ -275,7 +275,10 @@ typedef int (* t_command)(t_connection * c, char const * text);
 typedef struct {
 	const char * command_string;
 	t_command    command_handler;
+	bool         api_allowed; /* may be invoked through the REST API; false when omitted */
 } t_command_table_row;
+
+static const char * const api_not_allowed_msg = "Command can not be invoked through REST API.";
 
 static int command_set_flags(t_connection * c); // [Omega]
 // command handler prototypes
@@ -361,6 +364,8 @@ static int _handle_commandgroups_command(t_connection * c, char const * text);
 static int _handle_topic_command(t_connection * c, char const * text);
 static int _handle_moderate_command(t_connection * c, char const * text);
 static int _handle_clearstats_command(t_connection * c, char const * text);
+static int _handle_clearladder_command(t_connection * c, char const * text);
+static int _handle_anonacct_command(t_connection * c, char const * text);
 static int _handle_tos_command(t_connection * c, char const * text);
 static int _handle_swapicon_command(t_connection * c, char const *text);
 static int _handle_seticon_command(t_connection * c, char const *text);
@@ -375,34 +380,34 @@ static const t_command_table_row standard_command_table[] =
 {
 	{ "/clan"		, _handle_clan_command },
 	{ "/c"			, _handle_clan_command },
-	{ "/admin"		, _handle_admin_command },
+	{ "/admin"		, _handle_admin_command, true },
 	{ "/f"                  , _handle_friends_command },
 	{ "/friends"            , _handle_friends_command },
 	{ "/me"                 , _handle_me_command },
-	{ "/msg"                , _handle_whisper_command },
-	{ "/whisper"            , _handle_whisper_command },
-	{ "/w"                  , _handle_whisper_command },
-	{ "/m"                  , _handle_whisper_command },
-	{ "/status"             , _handle_status_command },
-	{ "/users"              , _handle_status_command },
-	{ "/who"                , _handle_who_command },
-	{ "/whois"              , _handle_whois_command },
-	{ "/whereis"            , _handle_whois_command },
-	{ "/where"              , _handle_whois_command },
+	{ "/msg"                , _handle_whisper_command, true },
+	{ "/whisper"            , _handle_whisper_command, true },
+	{ "/w"                  , _handle_whisper_command, true },
+	{ "/m"                  , _handle_whisper_command, true },
+	{ "/status"             , _handle_status_command, true },
+	{ "/users"              , _handle_status_command, true },
+	{ "/who"                , _handle_who_command, true },
+	{ "/whois"              , _handle_whois_command, true },
+	{ "/whereis"            , _handle_whois_command, true },
+	{ "/where"              , _handle_whois_command, true },
 	{ "/whoami"             , _handle_whoami_command },
-	{ "/announce"           , _handle_announce_command },
+	{ "/announce"           , _handle_announce_command, true },
 	{ "/beep"               , _handle_beep_command },
 	{ "/nobeep"             , _handle_nobeep_command },
-	{ "/version"            , _handle_version_command },
+	{ "/version"            , _handle_version_command, true },
 	{ "/copyright"          , _handle_copyright_command },
 	{ "/warrenty"           , _handle_copyright_command },
 	{ "/license"            , _handle_copyright_command },
-	{ "/uptime"             , _handle_uptime_command },
-	{ "/stats"              , _handle_stats_command },
-	{ "/astat"              , _handle_stats_command },
-	{ "/atstats"            , _handle_atstats_command },
-	{ "/racestats"          , _handle_racestats_command },	
-	{ "/time"               , _handle_time_command },
+	{ "/uptime"             , _handle_uptime_command, true },
+	{ "/stats"              , _handle_stats_command, true },
+	{ "/astat"              , _handle_stats_command, true },
+	{ "/atstats"            , _handle_atstats_command, true },
+	{ "/racestats"          , _handle_racestats_command, true },	
+	{ "/time"               , _handle_time_command, true },
         { "/channel"            , _handle_channel_command },
 	{ "/join"               , _handle_channel_command },
 	{ "/rejoin"             , _handle_rejoin_command },
@@ -417,14 +422,14 @@ static const t_command_table_row standard_command_table[] =
 	{ "/kick"               , _handle_kick_command },
 	{ "/ban"                , _handle_ban_command },
 	{ "/unban"              , _handle_unban_command },
-	{ "/tos"                , _handle_tos_command },
+	{ "/tos"                , _handle_tos_command, true },
 	{ NULL                  , NULL }
 
 };
 
 static const t_command_table_row extended_command_table[] =
 {
-	{ "/ann"                , _handle_announce_command },
+	{ "/ann"                , _handle_announce_command, true },
 	{ "/r"                  , _handle_reply_command },
 	{ "/reply"              , _handle_reply_command },
 	{ "/realmann"           , _handle_realmann_command },
@@ -433,16 +438,16 @@ static const t_command_table_row extended_command_table[] =
 	{ "/watchall"           , _handle_watchall_command },
 	{ "/unwatchall"         , _handle_unwatchall_command },
 	{ "/lusers"             , _handle_lusers_command },
-	{ "/news"               , _handle_news_command },
-	{ "/games"              , _handle_games_command },
-	{ "/channels"           , _handle_channels_command },
-	{ "/chs"                , _handle_channels_command },
-	{ "/addacct"            , _handle_addacct_command },
-	{ "/chpass"             , _handle_chpass_command },
-	{ "/connections"        , _handle_connections_command },
-	{ "/con"                , _handle_connections_command },
-	{ "/finger"             , _handle_finger_command },
-	{ "/operator"           , _handle_operator_command },
+	{ "/news"               , _handle_news_command, true },
+	{ "/games"              , _handle_games_command, true },
+	{ "/channels"           , _handle_channels_command, true },
+	{ "/chs"                , _handle_channels_command, true },
+	{ "/addacct"            , _handle_addacct_command, true },
+	{ "/chpass"             , _handle_chpass_command, true },
+	{ "/connections"        , _handle_connections_command, true },
+	{ "/con"                , _handle_connections_command, true },
+	{ "/finger"             , _handle_finger_command, true },
+	{ "/operator"           , _handle_operator_command, true },
 	{ "/aop"                , _handle_aop_command },
 	{ "/op"                 , _handle_op_command },
 	{ "/tmpop"           	, _handle_tmpop_command },
@@ -450,48 +455,50 @@ static const t_command_table_row extended_command_table[] =
 	{ "/voice"              , _handle_voice_command },
 	{ "/devoice"            , _handle_devoice_command },
 	{ "/vop"                , _handle_vop_command },
-	{ "/admins"             , _handle_admins_command },
-	{ "/operators"             , _handle_operators_command },
-	{ "/ops"             , _handle_operators_command },
+	{ "/admins"             , _handle_admins_command, true },
+	{ "/operators"             , _handle_operators_command, true },
+	{ "/ops"             , _handle_operators_command, true },
 	{ "/logout"             , _handle_quit_command },
 	{ "/quit"               , _handle_quit_command },
 	{ "/exit"               , _handle_quit_command },
-	{ "/kill"               , _handle_kill_command },
-	{ "/killsession"        , _handle_killsession_command },
-	{ "/gameinfo"           , _handle_gameinfo_command },
-	{ "/ladderactivate"     , _handle_ladderactivate_command },
-	{ "/rehash"             , _handle_rehash_command },
+	{ "/kill"               , _handle_kill_command, true },
+	{ "/killsession"        , _handle_killsession_command, true },
+	{ "/gameinfo"           , _handle_gameinfo_command, true },
+	{ "/ladderactivate"     , _handle_ladderactivate_command, true },
+	{ "/rehash"             , _handle_rehash_command, true },
 //	{ "/rank_all_accounts"  , _handle_rank_all_accounts_command },
-	{ "/shutdown"           , _handle_shutdown_command },
-	{ "/ladderinfo"         , _handle_ladderinfo_command },
+	{ "/shutdown"           , _handle_shutdown_command, true },
+	{ "/ladderinfo"         , _handle_ladderinfo_command, true },
 	{ "/timer"              , _handle_timer_command },
-	{ "/serverban"          , _handle_serverban_command },
-	{ "/netinfo"            , _handle_netinfo_command },
-	{ "/quota"              , _handle_quota_command },
-	{ "/lockacct"           , _handle_lockacct_command },
-	{ "/unlockacct"         , _handle_unlockacct_command },
-	{ "/muteacct"           , _handle_muteacct_command },
-	{ "/unmuteacct"         , _handle_unmuteacct_command },
-	{ "/ladderban"           , _handle_ladderban_command },
-	{ "/ladderunban"         , _handle_ladderunban_command },
+	{ "/serverban"          , _handle_serverban_command, true },
+	{ "/netinfo"            , _handle_netinfo_command, true },
+	{ "/quota"              , _handle_quota_command, true },
+	{ "/lockacct"           , _handle_lockacct_command, true },
+	{ "/unlockacct"         , _handle_unlockacct_command, true },
+	{ "/muteacct"           , _handle_muteacct_command, true },
+	{ "/unmuteacct"         , _handle_unmuteacct_command, true },
+	{ "/ladderban"           , _handle_ladderban_command, true },
+	{ "/ladderunban"         , _handle_ladderunban_command, true },
 	{ "/flag"               , _handle_flag_command },
 	{ "/tag"                , _handle_tag_command },
 	{ "/icon"               , _handle_swapicon_command },
-	{ "/seticon"            , _handle_seticon_command },	
-	{ "/help"               , handle_help_command },
-	{ "/mail"               , handle_mail_command },
-	{ "/ipban"              , handle_ipban_command }, // in ipban.c
-	{ "/ipscan"             , _handle_ipscan_command },
-	{ "/set"                , _handle_set_command },
-	{ "/motd"               , _handle_motd_command },
+	{ "/seticon"            , _handle_seticon_command, true },	
+	{ "/help"               , handle_help_command, true },
+	{ "/mail"               , handle_mail_command, true },
+	{ "/ipban"              , handle_ipban_command, true }, // in ipban.c
+	{ "/ipscan"             , _handle_ipscan_command, true },
+	{ "/set"                , _handle_set_command, true },
+	{ "/motd"               , _handle_motd_command, true },
 	{ "/latency"            , _handle_ping_command },
 	{ "/ping"               , _handle_ping_command },
 	{ "/p"                  , _handle_ping_command },
-	{ "/commandgroups"      , _handle_commandgroups_command },
-	{ "/cg"	                , _handle_commandgroups_command },
+	{ "/commandgroups"      , _handle_commandgroups_command, true },
+	{ "/cg"	                , _handle_commandgroups_command, true },
 	{ "/topic"              , _handle_topic_command },
 	{ "/moderate"           , _handle_moderate_command },
-	{ "/clearstats"         , _handle_clearstats_command },
+	{ "/clearstats"         , _handle_clearstats_command, true },
+	{ "/clearladder"        , _handle_clearladder_command, true },
+	{ "/anonacct"           , _handle_anonacct_command, true },
 
         { NULL                  , NULL }
 
@@ -511,6 +518,10 @@ extern int handle_command(t_connection * c,  char const * text)
 {
   t_command_table_row const *p;
 
+  /* being closed, e.g. because its account was just anonymized */
+  if (conn_get_state(c)==conn_state_destroy)
+    return 0;
+
   if ((text[0]!='\0') && (conn_quota_exceeded(c,text)))
   {
 	message_send_text(c,message_type_error,c,"You are sending commands to Battle.net too quickly and risk being disconnected for flooding. Please slow down.");
@@ -521,6 +532,11 @@ extern int handle_command(t_connection * c,  char const * text)
     {
       if (strstart(text, p->command_string)==0)
         {
+	  if (conn_is_virtual(c) && !p->api_allowed)
+	    {
+	      message_send_text(c,message_type_error,c,api_not_allowed_msg);
+	      return 0;
+	    }
 	  if (!(command_get_group(p->command_string)))
 	    {
 	      message_send_text(c,message_type_error,c,"This command has been deactivated");
@@ -547,6 +563,11 @@ extern int handle_command(t_connection * c,  char const * text)
       {
       if (strstart(text, p->command_string)==0)
         {
+	  if (conn_is_virtual(c) && !p->api_allowed)
+	    {
+	      message_send_text(c,message_type_error,c,api_not_allowed_msg);
+	      return 0;
+	    }
 	  if (!(command_get_group(p->command_string)))
 	    {
 	      message_send_text(c,message_type_error,c,"This command has been deactivated");
@@ -563,6 +584,11 @@ extern int handle_command(t_connection * c,  char const * text)
 
     if (std::strlen(text)>=2 && std::strncmp(text,"//",2)==0)
     {
+	if (conn_is_virtual(c))
+	{
+	    message_send_text(c,message_type_error,c,api_not_allowed_msg);
+	    return 0;
+	}
 	handle_alias_command(c,text);
 	return 0;
     }
@@ -2137,7 +2163,7 @@ static int _handle_nobeep_command(t_connection * c, char const *text)
 static int _handle_version_command(t_connection * c, char const *text)
 {
   eventlog(eventlog_level_info,__FUNCTION__,"[COMMAND] user \"%s\" run command %s",account_get_name(conn_get_account(c)),text);
-  message_send_text(c,message_type_info,c,PVPGN_SOFTWARE" "PVPGN_VERSION);
+  message_send_text(c,message_type_info,c,PVPGN_SOFTWARE " " PVPGN_VERSION);
   return 0;
 }
 
@@ -3587,7 +3613,7 @@ static int _handle_addacct_command(t_connection * c, char const *text)
 	return 0;
     }
 
-    snprintf(msgtemp, sizeof(msgtemp), "Account "UID_FORMAT" created.",account_get_uid(temp));
+    snprintf(msgtemp, sizeof(msgtemp), "Account " UID_FORMAT " created.",account_get_uid(temp));
     message_send_text(c,message_type_info,c,msgtemp);
     eventlog(eventlog_level_debug,__FUNCTION__,"[%d] account \"%s\" created",conn_get_socket(c),username);
 
@@ -3678,7 +3704,7 @@ static int _handle_chpass_command(t_connection * c, char const *text)
   if (account_get_auth_admin(account,NULL) == 1 ||
       account_get_auth_operator(account,NULL) == 1) {
     snprintf(msgtemp, sizeof(msgtemp), 
-      "Password for account "UID_FORMAT" updated.",account_get_uid(temp));
+      "Password for account " UID_FORMAT " updated.",account_get_uid(temp));
     message_send_text(c,message_type_info,c,msgtemp);
 
     snprintf(msgtemp, sizeof(msgtemp), "Hash is: %.128s",hash_get_str(passhash));
@@ -3738,6 +3764,8 @@ static int _handle_connections_command(t_connection *c, char const *text)
   LIST_TRAVERSE_CONST(connlist(),curr)
   {
       conn = (t_connection*)elem_get_data(curr);
+      if (conn_is_virtual(conn)) /* a REST API call, not a client */
+	continue;
       if (conn_get_account(conn))
 	  std::sprintf(name,"\"%.16s\"",conn_get_username(conn));
       else
@@ -3827,7 +3855,7 @@ static int _handle_finger_command(t_connection * c, char const *text)
   then = account_get_ll_ctime(account);
   tmthen = std::localtime(&then); /* FIXME: determine user's timezone */  
 	
-  snprintf(msgtemp, sizeof(msgtemp), "Login: %-16.16s "UID_FORMAT" Sex: %.14s",
+  snprintf(msgtemp, sizeof(msgtemp), "Login: %-16.16s " UID_FORMAT " Sex: %.14s",
 	  account_get_name(account),
 	  account_get_uid(account),
 	  account_get_sex(account));
@@ -3984,6 +4012,8 @@ static int _handle_operators_command(t_connection * c, char const *text)
 	continue;
       if (!conn_get_account(tc))
          continue;
+      if (conn_is_virtual(tc)) /* a REST API call, not a logged on user */
+	continue;
       if (account_get_auth_operator(conn_get_account(tc),NULL)==1)
 	{
 	  if ((nick = conn_get_username(tc)))
@@ -4022,6 +4052,8 @@ static int _handle_admins_command(t_connection * c, char const *text)
 	continue;
       if (!conn_get_account(tc))
         continue;
+      if (conn_is_virtual(tc)) /* a REST API call, not a logged on user */
+	continue;
       if (account_get_auth_admin(conn_get_account(tc),NULL)==1)
 	{
 	  if ((nick = conn_get_username(tc)))
@@ -4171,7 +4203,7 @@ static int _handle_gameinfo_command(t_connection * c, char const *text)
 	return 0;
       }
 
-  snprintf(msgtemp, sizeof(msgtemp), "Name: %-20.20s    ID: "GAMEID_FORMAT" (%.20s)",game_get_name(game),game_get_id(game),game_get_flag(game) != game_flag_private ? "public":"private");
+  snprintf(msgtemp, sizeof(msgtemp), "Name: %-20.20s    ID: " GAMEID_FORMAT " (%.20s)",game_get_name(game),game_get_id(game),game_get_flag(game) != game_flag_private ? "public":"private");
   message_send_text(c,message_type_info,c,msgtemp);
 
   {
@@ -4227,7 +4259,7 @@ static int _handle_gameinfo_command(t_connection * c, char const *text)
     if (!(gmgametime = std::localtime(&gametime)))
       std::strcpy(msgtemp,"Created: ?");
     else
-      std::strftime(msgtemp,sizeof(msgtemp),"Created: "GAME_TIME_FORMAT,gmgametime);
+      std::strftime(msgtemp,sizeof(msgtemp),"Created: " GAME_TIME_FORMAT,gmgametime);
     message_send_text(c,message_type_info,c,msgtemp);
 
     gametime = game_get_start_time(game);
@@ -4236,7 +4268,7 @@ static int _handle_gameinfo_command(t_connection * c, char const *text)
 	if (!(gmgametime = std::localtime(&gametime)))
 	  std::strcpy(msgtemp,"Started: ?");
 	else
-	  std::strftime(msgtemp,sizeof(msgtemp),"Started: "GAME_TIME_FORMAT,gmgametime);
+	  std::strftime(msgtemp,sizeof(msgtemp),"Started: " GAME_TIME_FORMAT,gmgametime);
       }
     else
       std::strcpy(msgtemp,"Started: ");
@@ -5067,6 +5099,10 @@ static int _handle_ipscan_command(t_connection * c, char const * text)
             // got empty element
             continue;
         }
+        if (conn_is_virtual(conn)) {
+            // a REST API call, not a user
+            continue;
+        }
     
         if(std::strcmp(ip,addr_num_to_ip_str(conn_get_addr(conn))) == 0) {
             snprintf(msgtemp, sizeof(msgtemp), "%s", conn_get_loggeduser(conn));
@@ -5102,6 +5138,7 @@ static int _handle_seticon_command(t_connection * c, char const *text)
 	eventlog(eventlog_level_info,__FUNCTION__,"[COMMAND] user \"%s\" run command %s",account_get_name(conn_get_account(c)),text);
 
     std::strncpy(t, text, MAX_MESSAGE_LEN - 1);
+    t[MAX_MESSAGE_LEN - 1] = '\0';
     for (i=0; t[i]!=' ' && t[i]!='\0'; i++); /* skip command /groups */
 
     for (; t[i]==' '; i++); /* skip spaces */
@@ -5346,6 +5383,7 @@ static int _handle_set_command(t_connection * c, char const *text)
   eventlog(eventlog_level_info,__FUNCTION__,"[COMMAND] user \"%s\" run command %s",account_get_name(conn_get_account(c)),text);  
   
   std::strncpy(t, text, MAX_MESSAGE_LEN - 1);
+  t[MAX_MESSAGE_LEN - 1] = '\0';
   for (i=0; t[i]!=' ' && t[i]!='\0'; i++); /* skip command /set */
 
   for (; t[i]==' '; i++); /* skip spaces */
@@ -5456,7 +5494,7 @@ static int _handle_tos_command(t_connection * c, char const * text)
                   while ( len  > MAX_MESSAGE_LEN - 1)
                   {
                         std::strncpy(msgtemp,buff,MAX_MESSAGE_LEN-1);
-                        msgtemp[MAX_MESSAGE_LEN]='\0';
+                        msgtemp[MAX_MESSAGE_LEN - 1]='\0';
                         buff += MAX_MESSAGE_LEN - 1;
                         len -= MAX_MESSAGE_LEN - 1;
                         message_send_text(c,message_type_info,c,msgtemp);
@@ -5545,6 +5583,7 @@ static int _handle_commandgroups_command(t_connection * c, char const * text)
   eventlog(eventlog_level_info,__FUNCTION__,"[COMMAND] user \"%s\" run command %s",account_get_name(conn_get_account(c)),text);	
 	
     std::strncpy(t, text, MAX_MESSAGE_LEN - 1);
+    t[MAX_MESSAGE_LEN - 1] = '\0';
     for (i=0; t[i]!=' ' && t[i]!='\0'; i++); /* skip command /groups */
 
     for (; t[i]==' '; i++); /* skip spaces */
@@ -5867,7 +5906,8 @@ static void _reset_scw2_stats(t_account *account, t_clienttag ctag, t_connection
     message_send_text(c,message_type_info,c,msgtemp);
 }
 
-static void _reset_w3_stats(t_account *account, t_clienttag ctag, t_connection *c)
+/* clears the solo, team and ffa ladder stats of an account and takes it off those ladders */
+static void _clear_w3_ladder_stats(t_account *account, t_clienttag ctag)
 {
     LadderList* ladderList;
     unsigned int uid = account_get_uid(account);
@@ -5900,6 +5940,11 @@ static void _reset_w3_stats(t_account *account, t_clienttag ctag, t_connection *
 	ladderList->delEntry(uid);
     // this would now need a way to delete the team for all members now
     //account_set_atteamcount(account,ctag,0);
+}
+
+static void _reset_w3_stats(t_account *account, t_clienttag ctag, t_connection *c)
+{
+    _clear_w3_ladder_stats(account,ctag);
 
     snprintf(msgtemp, sizeof(msgtemp), "Resetted %.64s's %.64s Stats",account_get_name(account),clienttag_get_title(ctag));
     message_send_text(c,message_type_info,c,msgtemp);
@@ -5976,6 +6021,118 @@ static int _handle_clearstats_command(t_connection *c, char const *text)
 	_reset_w3_stats(account,CLIENTTAG_WAR3XP_UINT,c);
 
     ladders.update();
+
+    return 0;
+}
+
+/*
+ * /clearladder <clienttag>: resets the ladder stats (level, xp, wins, losses, rank) of
+ * every account on the current solo, team and ffa ladder of WAR3 or W3XP, like
+ * /clearstats does for one account. Accounts that are not ranked keep their stats.
+ */
+static int _handle_clearladder_command(t_connection *c, char const *text)
+{
+    unsigned int i;
+    t_clienttag  ctag;
+    t_ladder_id  ladderIds[] = { ladder_id_solo, ladder_id_team, ladder_id_ffa };
+    std::vector<t_account *> accounts;
+
+    eventlog(eventlog_level_info,__FUNCTION__,"[COMMAND] user \"%s\" run command %s",account_get_name(conn_get_account(c)),text);
+
+    for (i=0; text[i]!=' ' && text[i]!='\0'; i++); /* skip command */
+    for (; text[i]==' '; i++);
+
+    if (std::strlen(text + i) != 4 ||
+	((ctag = tag_case_str_to_uint(text + i)) != CLIENTTAG_WAR3XP_UINT && ctag != CLIENTTAG_WARCRAFT3_UINT)) {
+	message_send_text(c,message_type_error,c,"Usage example: /clearladder <clienttag>");
+	message_send_text(c,message_type_error,c,"  where <clienttag> is W3XP or WAR3");
+	return 0;
+    }
+
+    /* collect first: clearing an account takes it off the ladder lists */
+    for (i=0; i<sizeof(ladderIds)/sizeof(ladderIds[0]); i++) {
+	LadderList* ladderList = ladders.getLadderList(LadderKey(ladderIds[i],ctag,ladder_sort_default,ladder_time_default));
+	const LadderReferencedObject* referencedObject;
+	unsigned int rank;
+
+	if (ladderList == NULL)
+	    continue;
+	for (rank=1; (referencedObject = ladderList->getReferencedObject(rank)) != NULL; rank++) {
+	    t_account* account = referencedObject->getAccount();
+	    if (account && std::find(accounts.begin(),accounts.end(),account) == accounts.end())
+		accounts.push_back(account);
+	}
+    }
+
+    for (std::vector<t_account *>::iterator it = accounts.begin(); it != accounts.end(); ++it)
+	_clear_w3_ladder_stats(*it,ctag);
+
+    ladders.update();
+
+    eventlog(eventlog_level_info,__FUNCTION__,"cleared %s ladder stats of %u accounts",clienttag_get_title(ctag),(unsigned int)accounts.size());
+    snprintf(msgtemp, sizeof(msgtemp), "Cleared %.64s ladder stats of %u accounts",clienttag_get_title(ctag),(unsigned int)accounts.size());
+    message_send_text(c,message_type_info,c,msgtemp);
+
+    return 0;
+}
+
+/*
+ * /anonacct {<username>|#<uid>}: erases everything about the person behind an
+ * account, see accountlist_anonymize_account(). It can't be undone.
+ */
+static int _handle_anonacct_command(t_connection *c, char const *text)
+{
+    t_account * account;
+    t_connection * user;
+    t_elem * curr;
+    unsigned int uid;
+
+    /* the name must not survive in the log */
+    eventlog(eventlog_level_info,__FUNCTION__,"[COMMAND] user \"%s\" run command /anonacct",account_get_name(conn_get_account(c)));
+
+    text = skip_command(text);
+
+    if (text[0]=='\0') {
+	message_send_text(c,message_type_info,c,"usage: /anonacct {<username>|#<uid>}");
+	return 0;
+    }
+
+    account = accountlist_find_account(text);
+    /* a name made of digits can also find the account with that uid, only
+     * accept that if it was asked for */
+    if (!account || (text[0]!='#' && strcasecmp(account_get_name(account),text)!=0)) {
+	message_send_text(c,message_type_error,c,"Invalid user.");
+	return 0;
+    }
+
+    if (account_get_auth_admin(account,NULL)==1 ||
+	(account_get_command_groups(account) & command_get_group("/anonacct"))) {
+	message_send_text(c,message_type_error,c,"You cannot anonymize administrators.");
+	return 0;
+    }
+
+    uid = account_get_uid(account);
+
+    /* done first so that the others see it leave with its old name */
+    LIST_TRAVERSE(connlist(),curr)
+    {
+	if (!(user = (t_connection*)elem_get_data(curr)) || conn_get_account(user)!=account)
+	    continue;
+	if (conn_get_channel(user))
+	    conn_part_channel(user);
+	message_send_text(user,message_type_info,user,"Your account was deleted.");
+	conn_close_read(user);
+    }
+
+    if (accountlist_anonymize_account(account)<0) {
+	snprintf(msgtemp, sizeof(msgtemp), "Could not anonymize account " UID_FORMAT ", it is locked now. See the server log and try again.",uid);
+	message_send_text(c,message_type_error,c,msgtemp);
+	return 0;
+    }
+
+    eventlog(eventlog_level_info,__FUNCTION__,"anonymized account " UID_FORMAT,uid);
+    snprintf(msgtemp, sizeof(msgtemp), "Account " UID_FORMAT " was anonymized.",uid);
+    message_send_text(c,message_type_info,c,msgtemp);
 
     return 0;
 }

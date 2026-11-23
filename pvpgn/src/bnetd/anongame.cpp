@@ -21,6 +21,7 @@
 
 #include <cstring>
 #include <cstdlib>
+#include <ctime>
 
 #include "compat/strdup.h"
 #include "common/packet.h"
@@ -939,6 +940,8 @@ static int _anongame_search_found(int queue)
 	eventlog(eventlog_level_error, __FUNCTION__, "anongameinfo_create failed");
 	return -1;
     }
+    if (mapname)
+	info->mapname = xstrdup(mapname);
 
     /* create data to be appended to end of packet */
     pt2 = (t_saf_pt2*)xmalloc(sizeof(t_saf_pt2));
@@ -1013,6 +1016,32 @@ static int _anongame_search_found(int queue)
 /**********************************************************************************/
 /* external functions */
 /**********************************************************************************/
+
+extern void anongame_queue_traverse(t_anongame_queue_func cb, void *data)
+{
+    int queue, level;
+    t_elem const *curr;
+
+    if (!cb) {
+	eventlog(eventlog_level_error, __FUNCTION__, "got NULL callback");
+	return;
+    }
+    for (queue = 0; queue < ANONGAME_TYPES; queue++) {
+	/* an arranged team is queued as a single entry */
+	const int entry_players = anongame_arranged(queue) && _anongame_totalteams(queue) > 0 ?
+	    _anongame_totalplayers(queue) / _anongame_totalteams(queue) : 1;
+
+	for (level = 0; level < MAX_LEVEL; level++) {
+	    if (!matchlists[queue][level])
+		continue;
+	    LIST_TRAVERSE_CONST(matchlists[queue][level], curr) {
+		t_matchdata const *md = (t_matchdata const *) elem_get_data(curr);
+		if (md && md->c)
+		    cb(queue, md->c, entry_players, data);
+	    }
+	}
+    }
+}
 extern int anongame_matchlists_create()
 {
     int i, j;
@@ -1343,6 +1372,8 @@ extern t_anongameinfo *anongameinfo_create(int totalplayers)
     temp = (t_anongameinfo*)xmalloc(sizeof(t_anongameinfo));
 
     temp->totalplayers = temp->currentplayers = totalplayers;
+    temp->mapname = NULL;
+    temp->created = std::time(NULL);
     for (i = 0; i < ANONGAME_MAX_GAMECOUNT; i++) {
 	temp->player[i] = NULL;
 	temp->account[i] = NULL;
@@ -1364,6 +1395,8 @@ extern void anongameinfo_destroy(t_anongameinfo * i)
     for (j = 0; j < ANONGAME_MAX_GAMECOUNT; j++)
 	if (i->results[j])
 	    gameresult_destroy(i->results[j]);
+    if (i->mapname)
+	xfree((void *)i->mapname);
     xfree(i);
 }
 

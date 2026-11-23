@@ -25,10 +25,14 @@
 
 #include <cstring>
 #include <cstdlib>
+#include <map>
+#include <string>
+#include <vector>
 
 #include "compat/snprintf.h"
 #include "common/eventlog.h"
 #include "common/util.h"
+#include "compat/strcasecmp.h"
 
 #define SQL_INTERNAL
 # include "sql_common.h"
@@ -48,6 +52,7 @@ static t_attr *sql_read_attr(t_storage_info *, const char *);
 static int sql_write_attrs(t_storage_info *, const t_hlist *);
 static t_storage_info * sql_read_account(const char *,unsigned);
 static const char *sql_escape_key(const char *);
+static t_storage_info * sql_anonymize_account(t_storage_info *, const char *, const t_hlist *);
 
 t_storage storage_sql = {
     sql_init,
@@ -69,7 +74,8 @@ t_storage storage_sql = {
     sql_remove_clanmember,
     sql_load_teams,
     sql_write_team,
-    sql_remove_team
+    sql_remove_team,
+    sql_anonymize_account
 };
 
 static char query[512];
@@ -154,36 +160,36 @@ static t_storage_info *sql_create_account(char const *username)
 
     info = xmalloc(sizeof(t_sql_info));
     *((unsigned int *) info) = uid;
-    snprintf(query, sizeof(query), "DELETE FROM %sBNET WHERE "SQL_UID_FIELD" = '%u'", tab_prefix, uid);
+    snprintf(query, sizeof(query), "DELETE FROM %sBNET WHERE " SQL_UID_FIELD " = '%u'", tab_prefix, uid);
     sql->query(query);
-    snprintf(query, sizeof(query), "INSERT INTO %sBNET ("SQL_UID_FIELD",username) VALUES('%u','%s')", tab_prefix, uid, user);
+    snprintf(query, sizeof(query), "INSERT INTO %sBNET (" SQL_UID_FIELD ",username) VALUES('%u','%s')", tab_prefix, uid, user);
     if (sql->query(query))
     {
 	eventlog(eventlog_level_error, __FUNCTION__, "user insert failed (query: '%s')", query);
 	goto err_info;
     }
 
-    snprintf(query, sizeof(query), "DELETE FROM %sprofile WHERE "SQL_UID_FIELD" = '%u'", tab_prefix, uid);
+    snprintf(query, sizeof(query), "DELETE FROM %sprofile WHERE " SQL_UID_FIELD " = '%u'", tab_prefix, uid);
     sql->query(query);
-    snprintf(query, sizeof(query), "INSERT INTO %sprofile ("SQL_UID_FIELD") VALUES('%u')", tab_prefix, uid);
+    snprintf(query, sizeof(query), "INSERT INTO %sprofile (" SQL_UID_FIELD ") VALUES('%u')", tab_prefix, uid);
     if (sql->query(query))
     {
 	eventlog(eventlog_level_error, __FUNCTION__, "user insert failed (query: '%s')", query);
 	goto err_info;
     }
 
-    snprintf(query, sizeof(query), "DELETE FROM %sRecord WHERE "SQL_UID_FIELD" = '%u'", tab_prefix, uid);
+    snprintf(query, sizeof(query), "DELETE FROM %sRecord WHERE " SQL_UID_FIELD " = '%u'", tab_prefix, uid);
     sql->query(query);
-    snprintf(query, sizeof(query), "INSERT INTO %sRecord ("SQL_UID_FIELD") VALUES('%u')", tab_prefix, uid);
+    snprintf(query, sizeof(query), "INSERT INTO %sRecord (" SQL_UID_FIELD ") VALUES('%u')", tab_prefix, uid);
     if (sql->query(query))
     {
 	eventlog(eventlog_level_error, __FUNCTION__, "user insert failed (query: '%s')", query);
 	goto err_info;
     }
 
-    snprintf(query, sizeof(query), "DELETE FROM %sfriend WHERE "SQL_UID_FIELD" = '%u'", tab_prefix, uid);
+    snprintf(query, sizeof(query), "DELETE FROM %sfriend WHERE " SQL_UID_FIELD " = '%u'", tab_prefix, uid);
     sql->query(query);
-    snprintf(query, sizeof(query), "INSERT INTO %sfriend ("SQL_UID_FIELD") VALUES('%u')", tab_prefix, uid);
+    snprintf(query, sizeof(query), "INSERT INTO %sfriend (" SQL_UID_FIELD ") VALUES('%u')", tab_prefix, uid);
     if (sql->query(query))
     {
 	eventlog(eventlog_level_error, __FUNCTION__, "user insert failed (query: '%s')", query);
@@ -422,7 +428,7 @@ int sql_write_attrs(t_storage_info * info, const t_hlist *attrs)
 
 	sql->escape_string(escape, safeval, std::strlen(safeval));
 
-	snprintf(query, sizeof(query), "UPDATE %s%s SET %s = '%s' WHERE "SQL_UID_FIELD" = '%u'", tab_prefix, tab, col, escape, uid);
+	snprintf(query, sizeof(query), "UPDATE %s%s SET %s = '%s' WHERE " SQL_UID_FIELD " = '%u'", tab_prefix, tab, col, escape, uid);
 //      eventlog(eventlog_level_trace, "db_set", "update query: %s", query);
 
 	if (sql->query(query) || !sql->affected_rows()) {
@@ -438,7 +444,7 @@ int sql_write_attrs(t_storage_info * info, const t_hlist *attrs)
 //          eventlog(eventlog_level_trace, "db_set", "retry insert query: %s", query);
 	    if (sql->query(query) || !sql->affected_rows()) {
 		// Tried everything, now trying to insert that user to the table for the first time
-		snprintf(query2, sizeof(query2), "INSERT INTO %s%s ("SQL_UID_FIELD",%s) VALUES ('%u','%s')", tab_prefix, tab, col, uid, escape);
+		snprintf(query2, sizeof(query2), "INSERT INTO %s%s (" SQL_UID_FIELD ",%s) VALUES ('%u','%s')", tab_prefix, tab, col, uid, escape);
 //              eventlog(eventlog_level_error, __FUNCTION__, "update failed so tried INSERT for the last chance");
 		if (sql->query(query2))
 		{
@@ -472,10 +478,10 @@ static t_storage_info * sql_read_account(const char *name, unsigned uid)
         char *user = xstrdup(name);
         strlower(user);
 
-	snprintf(query, sizeof(query), "SELECT "SQL_UID_FIELD" FROM %sBNET WHERE username='%s'", tab_prefix, user);
+	snprintf(query, sizeof(query), "SELECT " SQL_UID_FIELD " FROM %sBNET WHERE username='%s'", tab_prefix, user);
 	xfree(user);
     } else
-	snprintf(query, sizeof(query), "SELECT "SQL_UID_FIELD" FROM %sBNET WHERE "SQL_UID_FIELD" = '%u'", tab_prefix, uid);
+	snprintf(query, sizeof(query), "SELECT " SQL_UID_FIELD " FROM %sBNET WHERE " SQL_UID_FIELD " = '%u'", tab_prefix, uid);
     result = sql->query_res(query);
     if (!result) {
 	eventlog(eventlog_level_error, __FUNCTION__, "error query db (query:\"%s\")", query);
@@ -529,6 +535,123 @@ static const char *sql_escape_key(const char *key)
 	}
 
     return newkey;
+}
+
+/* the names of the columns of a table */
+static int _db_get_cols(const char *tab, std::vector<std::string>& cols)
+{
+    t_sql_res *result;
+    t_sql_field *fields, *fentry;
+
+    snprintf(query, sizeof(query), "SELECT * FROM %s%s LIMIT 1", tab_prefix, tab);
+    if ((result = sql->query_res(query)) == NULL)
+    {
+	eventlog(eventlog_level_error, __FUNCTION__, "error query db (query:\"%s\")", query);
+	return -1;
+    }
+
+    if (sql->num_rows(result) < 1)	/* not all engines know the columns then */
+    {
+	sql->free_result(result);
+	return 0;
+    }
+
+    if ((fields = sql->fetch_fields(result)) == NULL)
+    {
+	eventlog(eventlog_level_error, __FUNCTION__, "could not fetch the fields");
+	sql->free_result(result);
+	return -1;
+    }
+
+    for (fentry = fields; *fentry; fentry++)
+	cols.push_back(*fentry);
+
+    sql->free_fields(fields);
+    sql->free_result(result);
+
+    return 0;
+}
+
+static std::string _db_escape(const char *str)
+{
+    std::vector<char> buf(std::strlen(str) * 2 + 1);
+
+    sql->escape_string(&buf[0], str, std::strlen(str));
+    return &buf[0];
+}
+
+static t_storage_info * sql_anonymize_account(t_storage_info * info, const char *username, const t_hlist *attrs)
+{
+    char *tab, *col;
+    t_hlist *curr;
+    unsigned int uid;
+    std::string q;
+    std::vector<std::string> cols;
+    std::map<std::string, std::string> values;
+
+    if (!sql)
+    {
+	eventlog(eventlog_level_error, __FUNCTION__, "sql layer not initilized");
+	return NULL;
+    }
+
+    if (info == NULL || username == NULL || attrs == NULL)
+    {
+	eventlog(eventlog_level_error, __FUNCTION__, "got NULL parameter");
+	return NULL;
+    }
+
+    uid = *((unsigned int *) info);
+    if (uid == sql_defacct)
+    {
+	eventlog(eventlog_level_error, __FUNCTION__, "refusing to anonymize the default account");
+	return NULL;
+    }
+
+    if (sql_erase_personal_tables(uid) < 0)
+	return NULL;
+
+    /* a column which is not given is emptied, whoever has added it */
+    hlist_for_each(curr, (t_hlist*)attrs)
+    {
+	t_attr *attr = hlist_entry(curr, t_attr, link);
+
+	if (attr_get_val(attr) && _db_get_tab(attr_get_key(attr), &tab, &col) == 0 && strcasecmp(tab, "BNET") == 0)
+	    values[col] = attr_get_val(attr);
+    }
+    values["username"] = username;
+
+    if (_db_get_cols("BNET", cols) < 0)
+	return NULL;
+    for (std::vector<std::string>::const_iterator it(cols.begin()); it != cols.end(); ++it)
+    {
+	std::map<std::string, std::string>::iterator val(values.find(*it));
+
+	if (*it == SQL_UID_FIELD)
+	    continue;
+	q += (q.empty() ? "" : ", ") + *it + " = ";
+	if (val != values.end())
+	{
+	    q += "'" + _db_escape(val->second.c_str()) + "'";
+	    values.erase(val);
+	}
+	else
+	    q += "NULL";
+    }
+    if (!values.empty())
+    {
+	eventlog(eventlog_level_error, __FUNCTION__, "table BNET has no column \"%s\"", values.begin()->first.c_str());
+	return NULL;
+    }
+
+    q = std::string("UPDATE ") + tab_prefix + "BNET SET " + q + " WHERE " SQL_UID_FIELD " = '" + std::to_string(uid) + "'";
+    if (sql->query(q.c_str()) || !sql->affected_rows())
+    {
+	eventlog(eventlog_level_error, __FUNCTION__, "could not update table BNET for uid %u", uid);
+	return NULL;
+    }
+
+    return info;
 }
 
 }
